@@ -1,28 +1,36 @@
-# Shree Sai Creation
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-Premium, data-driven frontend for a luxury chandelier and decorative lighting brand.
+## Getting Started
 
-## Run locally
+First, run the development server:
 
 ```bash
-npm install
 npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
 ```
 
-## Dynamic-content architecture
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-All page content flows through `lib/content-repository.ts`. The current repository reads typed mock data from `data/site-data.ts`; when the backend is ready, replace only the repository methods with database/CMS/API queries. Page and UI components can remain unchanged.
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-Available frontend API contracts:
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-- `GET /api/site` — site settings, navigation and FAQs
-- `GET /api/categories`
-- `GET /api/products?q=&category=&style=&space=`
-- `GET /api/products/[slug]`
-- `GET /api/projects?type=`
-- `GET /api/posts`
-- `POST /api/inquiries` — validated inquiry payload, ready to connect to a CRM/database
+## Learn More
 
-## Routes
+To learn more about Next.js, take a look at the following resources:
 
-`/`, `/about`, `/collections`, `/collections/[slug]`, `/projects`, `/bespoke`, `/blog`, `/blog/[slug]`, `/contact`, and a custom 404 state.
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+
+## Deploy on Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

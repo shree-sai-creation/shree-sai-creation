@@ -1,0 +1,556 @@
+"use client";
+
+import React, { useState, useEffect, useRef } from "react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
+import { ShoppingBag, Heart, Search, Menu, X, Trash2, Plus, Minus, ArrowRight, User, ChevronDown, LogOut } from "lucide-react";
+import { useCart } from "@/context/CartContext";
+import { PRODUCTS } from "@/data/products";
+import { Logo } from "@/components/common/Logo";
+
+
+
+// ─── Category previews for mega menu ─────────────────────────
+const MEGA_CATEGORIES = [
+  { name: "Chandeliers", count: 24, img: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=300&q=80", slug: "chandeliers" },
+  { name: "Pendant Lights", count: 18, img: "https://images.unsplash.com/photo-1524484485831-a92ffc0de03f?w=300&q=80", slug: "pendant" },
+  { name: "Wall Lights", count: 20, img: "https://images.unsplash.com/photo-1565538810643-b5bdb714032a?w=300&q=80", slug: "wall" },
+  { name: "Table Lamps", count: 16, img: "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=300&q=80", slug: "table" },
+];
+
+export const Header: React.FC = () => {
+  const pathname = usePathname();
+  const router = useRouter();
+  const {
+    cart, wishlist, isCartOpen, setIsCartOpen, isWishlistOpen, setIsWishlistOpen,
+    removeFromCart, updateCartQuantity, toggleWishlist, addToCart,
+    subtotal, theme, toggleTheme, formatPrice,
+  } = useCart();
+
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [hoveredNav, setHoveredNav] = useState<string | null>(null);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [user, setUser] = useState<{ email: string; name: string; role: string } | null>(null);
+  const [scrolled, setScrolled] = useState(false);
+
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  const totalCartItems = cart.reduce((s, i) => s + i.quantity, 0);
+
+  // Scroll detection
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 20);
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+
+
+  // Load user
+  useEffect(() => {
+    const stored = localStorage.getItem("shree_sai_user");
+    setUser(stored ? JSON.parse(stored) : null);
+  }, [pathname]);
+
+  // Search focus
+  useEffect(() => {
+    if (isSearchOpen) searchRef.current?.focus();
+  }, [isSearchOpen]);
+
+  // Close menus on route change
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+    setIsSearchOpen(false);
+    setIsProfileOpen(false);
+  }, [pathname]);
+
+  const searchResults = searchQuery
+    ? PRODUCTS.filter(p =>
+        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.category.toLowerCase().includes(searchQuery.toLowerCase())
+      ).slice(0, 6)
+    : [];
+
+  const navLinks = [
+    { name: "Home", href: "/" },
+    { name: "Shop", href: "/shop", hasMega: true },
+    { name: "Collections", href: "/shop" },
+    { name: "About Us", href: "/about" },
+    { name: "Contact", href: "/contact" },
+  ];
+
+  const handleLogout = () => {
+    localStorage.removeItem("shree_sai_user");
+    setUser(null);
+    setIsProfileOpen(false);
+    router.push("/");
+  };
+
+  return (
+    <>
+
+
+      {/* ─── Main Header ──────────────────────────────────────────── */}
+      <header
+        className={`sticky top-0 left-0 w-full z-40 transition-all duration-500 border-b ${
+          scrolled
+            ? theme === "dark"
+              ? "bg-[#0a0a0a]/95 backdrop-blur-md border-white/8 shadow-[0_4px_30px_rgba(0,0,0,0.8)]"
+              : "bg-white/95 backdrop-blur-md border-black/8 shadow-[0_4px_30px_rgba(0,0,0,0.05)]"
+            : theme === "dark"
+              ? "bg-[#0a0a0a]/90 backdrop-blur-sm border-white/5"
+              : "bg-[#FAF8F5]/90 backdrop-blur-sm border-black/5"
+        }`}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-[85px]">
+
+            {/* Mobile Menu Toggle */}
+            <button
+              onClick={() => setIsMobileMenuOpen(true)}
+              className={`md:hidden p-1.5 transition-colors ${
+                theme === "dark" ? "text-white/60 hover:text-white" : "text-black/60 hover:text-black"
+              }`}
+              aria-label="Open menu"
+            >
+              <Menu size={20} />
+            </button>
+
+            {/* ─── Logo ─── */}
+            <Link href="/" className="flex items-center select-none group py-1.5 shrink-0">
+              <Logo iconSize={32} />
+            </Link>
+
+            {/* ─── Desktop Navigation ─── */}
+            <nav className="hidden md:flex items-center h-full mx-6" onMouseLeave={() => setHoveredNav(null)}>
+              {navLinks.map(link => (
+                <div key={link.name} className="relative h-full flex items-center">
+                  <Link
+                    href={link.href}
+                    onMouseEnter={() => link.hasMega ? setHoveredNav("shop") : setHoveredNav(null)}
+                    className={`relative px-4 lg:px-5 h-full flex items-center text-[10px] tracking-[0.25em] uppercase font-semibold transition-colors duration-200 group ${
+                      pathname === link.href
+                        ? "text-[#C9A96E]"
+                        : theme === "dark"
+                          ? "text-white/70 hover:text-white"
+                          : "text-black/70 hover:text-black"
+                    }`}
+                  >
+                    {link.name}
+                    {link.hasMega && <ChevronDown size={10} className="ml-1 opacity-50" />}
+                    {/* Active underline */}
+                    <span className={`absolute bottom-0 left-4 lg:left-5 right-4 lg:right-5 h-[1.5px] bg-[#C9A96E] transition-transform duration-300 origin-left ${
+                      pathname === link.href ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100"
+                    }`} />
+                  </Link>
+                </div>
+              ))}
+            </nav>
+
+            {/* ─── Right Actions ─── */}
+            <div className={`flex items-center gap-1.5 ${theme === "dark" ? "text-white" : "text-black"}`}>
+
+              {/* Search */}
+              <button
+                onClick={() => setIsSearchOpen(true)}
+                className="p-2 opacity-60 hover:opacity-100 hover:text-[#C9A96E] transition-all duration-200"
+                aria-label="Search"
+              >
+                <Search size={16} />
+              </button>
+
+              {/* Profile */}
+              <div className="relative">
+                <button
+                  onClick={() => setIsProfileOpen(v => !v)}
+                  className="p-2 opacity-60 hover:opacity-100 hover:text-[#C9A96E] transition-all duration-200"
+                  aria-label="Account"
+                >
+                  <User size={16} />
+                </button>
+                <AnimatePresence>
+                  {isProfileOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 8, scale: 0.97 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 8, scale: 0.97 }}
+                      transition={{ duration: 0.2 }}
+                      className={`absolute right-0 top-full mt-2 w-56 border shadow-2xl z-50 ${
+                        theme === "dark" ? "bg-[#141414] border-white/8 text-white" : "bg-white border-black/8 text-black"
+                      }`}
+                    >
+                      {user ? (
+                        <>
+                          <div className={`px-4 py-3 border-b ${theme === "dark" ? "border-white/5" : "border-black/5"}`}>
+                            <p className="text-[11px] font-medium truncate">{user.name}</p>
+                            <p className={`text-[10px] truncate ${theme === "dark" ? "text-white/40" : "text-black/40"}`}>{user.email}</p>
+                          </div>
+                          <div className="py-1.5">
+                            <button
+                              onClick={handleLogout}
+                              className={`w-full flex items-center gap-3 px-4 py-2.5 text-[10px] tracking-wider uppercase text-left transition-colors ${
+                                theme === "dark"
+                                  ? "text-white/50 hover:text-red-400 hover:bg-white/3"
+                                  : "text-black/50 hover:text-red-600 hover:bg-black/3"
+                              }`}
+                            >
+                              <LogOut size={12} /> Sign Out
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="py-2">
+                          <Link href="/signin" onClick={() => setIsProfileOpen(false)} className={`block px-4 py-2.5 text-[10px] tracking-wider uppercase transition-colors ${
+                            theme === "dark" ? "text-white/60 hover:text-white hover:bg-white/3" : "text-black/60 hover:text-black hover:bg-black/3"
+                          }`}>
+                            Sign In
+                          </Link>
+                          <Link href="/signup" onClick={() => setIsProfileOpen(false)} className="block px-4 py-2.5 text-[10px] tracking-wider uppercase text-[#C9A96E] hover:bg-black/3 transition-colors">
+                            Create Account
+                          </Link>
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Wishlist */}
+              <button
+                onClick={() => setIsWishlistOpen(true)}
+                className="relative p-2 opacity-60 hover:opacity-100 hover:text-[#C9A96E] transition-all duration-200"
+                aria-label="Wishlist"
+              >
+                <Heart size={16} />
+                {wishlist.length > 0 && (
+                  <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-[#C9A96E] text-[7.5px] text-black font-bold flex items-center justify-center rounded-full">
+                    {wishlist.length}
+                  </span>
+                )}
+              </button>
+
+              {/* Cart */}
+              <button
+                onClick={() => setIsCartOpen(true)}
+                className="relative p-2 opacity-60 hover:opacity-100 hover:text-[#C9A96E] transition-all duration-200"
+                aria-label="Cart"
+              >
+                <ShoppingBag size={16} />
+                {totalCartItems > 0 && (
+                  <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-[#C9A96E] text-[7.5px] text-black font-bold flex items-center justify-center rounded-full">
+                    {totalCartItems}
+                  </span>
+                )}
+              </button>
+
+              {/* Theme Toggle */}
+              <button
+                onClick={toggleTheme}
+                className="ml-1 p-2 opacity-60 hover:opacity-100 hover:text-[#C9A96E] transition-all duration-200 cursor-pointer"
+                aria-label="Toggle theme"
+              >
+                {theme === "dark" ? (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                    <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                  </svg>
+                ) : (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                  </svg>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* ─── Mega Menu ─── */}
+        <AnimatePresence>
+          {hoveredNav === "shop" && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.25 }}
+              className="absolute left-0 w-full bg-[#111111] border-t border-b border-white/5 shadow-2xl z-30"
+              onMouseEnter={() => setHoveredNav("shop")}
+              onMouseLeave={() => setHoveredNav(null)}
+            >
+              <div className="max-w-7xl mx-auto px-8 py-8">
+                <div className="grid grid-cols-5 gap-6">
+                  <div className="col-span-1">
+                    <p className="section-label mb-4">Collections</p>
+                    <div className="space-y-2">
+                      {["All Products", "New Arrivals", "Best Sellers", "Sale"].map(item => (
+                        <Link
+                          key={item}
+                          href={item === "All Products" ? "/shop" : `/shop?filter=${item.toLowerCase().replace(" ", "-")}`}
+                          className="block text-[10px] tracking-widest uppercase text-white/50 hover:text-[#C9A96E] transition-colors py-1"
+                          onClick={() => setHoveredNav(null)}
+                        >
+                          {item}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="col-span-4 grid grid-cols-4 gap-4">
+                    {MEGA_CATEGORIES.map(cat => (
+                      <Link
+                        key={cat.slug}
+                        href={`/shop?category=${cat.slug}`}
+                        onClick={() => setHoveredNav(null)}
+                        className="group"
+                      >
+                        <div className="aspect-[4/3] overflow-hidden bg-[#1a1a1a] mb-3">
+                          <img
+                            src={cat.img}
+                            alt={cat.name}
+                            className="w-full h-full object-cover opacity-60 group-hover:opacity-85 group-hover:scale-105 transition-all duration-700"
+                          />
+                        </div>
+                        <p className="text-[10px] tracking-[0.2em] uppercase text-white group-hover:text-[#C9A96E] transition-colors">{cat.name}</p>
+                        <p className="text-[9px] text-white/30 mt-0.5">{cat.count} Products</p>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </header>
+
+      {/* ─── Search Overlay ───────────────────────────────────────── */}
+      <AnimatePresence>
+        {isSearchOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col"
+          >
+            <div className="max-w-3xl mx-auto w-full px-6 pt-24">
+              <div className="flex items-center gap-4 border-b border-white/10 pb-4">
+                <Search size={18} className="text-white/30 shrink-0" />
+                <input
+                  ref={searchRef}
+                  type="text"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="Search chandeliers, pendants, lamps..."
+                  className="flex-1 bg-transparent text-white text-lg font-light placeholder:text-white/20 outline-none"
+                />
+                <button onClick={() => { setIsSearchOpen(false); setSearchQuery(""); }} className="text-white/40 hover:text-white transition-colors p-1.5">
+                  <X size={18} />
+                </button>
+              </div>
+
+              {searchResults.length > 0 && (
+                <div className="mt-6 space-y-2">
+                  {searchResults.map(p => (
+                    <Link
+                      key={p.id}
+                      href={`/shop/${p.slug}`}
+                      onClick={() => { setIsSearchOpen(false); setSearchQuery(""); }}
+                      className="flex items-center gap-4 p-3 hover:bg-white/3 transition-colors group"
+                    >
+                      <img src={p.images[0]} alt={p.name} className="w-12 h-12 object-cover opacity-70 group-hover:opacity-100 transition-opacity" />
+                      <div>
+                        <p className="text-sm text-white group-hover:text-[#C9A96E] transition-colors">{p.name}</p>
+                        <p className="text-xs text-white/30">{p.category} · {formatPrice(p.price)}</p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+              {searchQuery && searchResults.length === 0 && (
+                <p className="mt-8 text-white/30 text-sm">No results for &quot;{searchQuery}&quot;</p>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ─── Cart Drawer ──────────────────────────────────────────── */}
+      <AnimatePresence>
+        {isCartOpen && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50" onClick={() => setIsCartOpen(false)} />
+            <motion.div
+              initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 30, stiffness: 300 }}
+              className="fixed right-0 top-0 h-full w-full max-w-md bg-[#111111] border-l border-white/5 z-50 flex flex-col"
+            >
+              <div className="flex items-center justify-between px-6 py-5 border-b border-white/5">
+                <div>
+                  <h2 className="font-serif text-lg text-white tracking-wider">Your Cart</h2>
+                  <p className="text-[10px] text-white/30 tracking-widest uppercase">{totalCartItems} {totalCartItems === 1 ? "item" : "items"}</p>
+                </div>
+                <button onClick={() => setIsCartOpen(false)} className="text-white/40 hover:text-white transition-colors p-1.5"><X size={18} /></button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
+                {cart.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
+                    <ShoppingBag size={32} className="text-white/10" />
+                    <p className="text-white/30 text-sm">Your cart is empty</p>
+                    <button onClick={() => { setIsCartOpen(false); router.push("/shop"); }} className="btn-luxury text-[10px] px-6 py-3">
+                      Explore Collection
+                    </button>
+                  </div>
+                ) : (
+                  cart.map(item => (
+                    <div key={`${item.product.id}-${item.selectedFinish}`} className="flex gap-4">
+                      <img src={item.product.images[0]} alt={item.product.name} className="w-20 h-24 object-cover flex-shrink-0 bg-[#1a1a1a]" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[11px] tracking-wider uppercase text-white leading-tight line-clamp-2">{item.product.name}</p>
+                        <p className="text-[10px] text-white/30 mt-1">{item.selectedFinish}</p>
+                        <p className="text-[#C9A96E] text-[11px] mt-1.5 font-medium">{formatPrice(item.product.price * (1 - item.product.discount / 100))}</p>
+                        <div className="flex items-center gap-0 mt-2.5">
+                          <button onClick={() => updateCartQuantity(item.product.id, item.selectedFinish, item.quantity - 1)} className="w-7 h-7 border border-white/10 text-white/50 hover:text-white hover:border-white/30 flex items-center justify-center transition-colors"><Minus size={10} /></button>
+                          <span className="w-8 text-center text-[11px] text-white">{item.quantity}</span>
+                          <button onClick={() => updateCartQuantity(item.product.id, item.selectedFinish, item.quantity + 1)} className="w-7 h-7 border border-white/10 text-white/50 hover:text-white hover:border-white/30 flex items-center justify-center transition-colors"><Plus size={10} /></button>
+                          <button onClick={() => removeFromCart(item.product.id, item.selectedFinish)} className="ml-auto text-white/20 hover:text-red-400 transition-colors p-1"><Trash2 size={13} /></button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {cart.length > 0 && (
+                <div className="px-6 py-5 border-t border-white/5 space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] tracking-widest uppercase text-white/40">Subtotal</span>
+                    <span className="font-serif text-white text-lg">{formatPrice(subtotal)}</span>
+                  </div>
+                  <p className="text-[9px] text-white/25 tracking-wider">Shipping & taxes calculated at checkout</p>
+                  <Link href="/checkout" onClick={() => setIsCartOpen(false)} className="btn-luxury w-full text-[10px] py-4">
+                    Proceed to Checkout <ArrowRight size={13} />
+                  </Link>
+                  <button onClick={() => setIsCartOpen(false)} className="btn-outline-luxury w-full text-[10px] py-3.5">
+                    Continue Shopping
+                  </button>
+                </div>
+              )}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* ─── Wishlist Drawer ──────────────────────────────────────── */}
+      <AnimatePresence>
+        {isWishlistOpen && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50" onClick={() => setIsWishlistOpen(false)} />
+            <motion.div
+              initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 30, stiffness: 300 }}
+              className="fixed right-0 top-0 h-full w-full max-w-md bg-[#111111] border-l border-white/5 z-50 flex flex-col"
+            >
+              <div className="flex items-center justify-between px-6 py-5 border-b border-white/5">
+                <div>
+                  <h2 className="font-serif text-lg text-white tracking-wider">Wishlist</h2>
+                  <p className="text-[10px] text-white/30 tracking-widest uppercase">{wishlist.length} saved items</p>
+                </div>
+                <button onClick={() => setIsWishlistOpen(false)} className="text-white/40 hover:text-white transition-colors p-1.5"><X size={18} /></button>
+              </div>
+              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+                {wishlist.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
+                    <Heart size={32} className="text-white/10" />
+                    <p className="text-white/30 text-sm">No saved items yet</p>
+                  </div>
+                ) : (
+                  wishlist.map(product => (
+                    <div key={product.id} className="flex gap-4 border-b border-white/5 pb-4">
+                      <Link href={`/shop/${product.slug}`} onClick={() => setIsWishlistOpen(false)}>
+                        <img src={product.images[0]} alt={product.name} className="w-20 h-24 object-cover bg-[#1a1a1a]" />
+                      </Link>
+                      <div className="flex-1">
+                        <Link href={`/shop/${product.slug}`} onClick={() => setIsWishlistOpen(false)}>
+                          <p className="text-[11px] tracking-wider uppercase text-white hover:text-[#C9A96E] transition-colors leading-tight">{product.name}</p>
+                        </Link>
+                        <p className="text-[#C9A96E] text-[11px] mt-1.5">{formatPrice(product.price)}</p>
+                        <div className="flex gap-2 mt-3">
+                          <button
+                            onClick={() => { addToCart(product, 1, product.finish.split(",")[0]?.trim() || "Standard"); setIsWishlistOpen(false); setIsCartOpen(true); }}
+                            className="btn-luxury text-[9px] px-3 py-2"
+                          >
+                            Add to Cart
+                          </button>
+                          <button onClick={() => toggleWishlist(product)} className="p-2 border border-white/10 text-white/40 hover:text-red-400 hover:border-red-400/30 transition-colors">
+                            <X size={11} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* ─── Mobile Menu ──────────────────────────────────────────── */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/80 z-50" onClick={() => setIsMobileMenuOpen(false)} />
+            <motion.div
+              initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }}
+              transition={{ type: "spring", damping: 30, stiffness: 300 }}
+              className="fixed left-0 top-0 h-full w-80 bg-[#111111] border-r border-white/5 z-50 flex flex-col"
+            >
+              <div className="flex items-center justify-between px-6 py-5 border-b border-white/5">
+                <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3">
+                  <img src="/logo.webp" alt="Logo" className="w-8 h-8 object-contain" />
+                  <div>
+                    <p className="font-serif text-[11px] tracking-[0.35em] uppercase text-white">Shree Sai</p>
+                    <p className="text-[7px] tracking-[0.45em] uppercase text-[#C9A96E]">Creation</p>
+                  </div>
+                </Link>
+                <button onClick={() => setIsMobileMenuOpen(false)} className="text-white/40 hover:text-white transition-colors p-1.5"><X size={18} /></button>
+              </div>
+
+              <nav className="flex-1 px-6 py-8 space-y-1">
+                {navLinks.map(link => (
+                  <Link
+                    key={link.name}
+                    href={link.href}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className={`block py-3 text-[11px] tracking-[0.25em] uppercase border-b border-white/5 transition-colors ${
+                      pathname === link.href ? "text-[#C9A96E]" : "text-white/60 hover:text-white"
+                    }`}
+                  >
+                    {link.name}
+                  </Link>
+                ))}
+              </nav>
+
+              <div className="px-6 py-6 border-t border-white/5 space-y-3">
+                {user ? (
+                  <div>
+                    <p className="text-[10px] text-white/40 mb-2">{user.email}</p>
+                    <button onClick={handleLogout} className="text-[10px] tracking-widest uppercase text-red-400/70">Sign Out</button>
+                  </div>
+                ) : (
+                  <div className="flex gap-3">
+                    <Link href="/signin" onClick={() => setIsMobileMenuOpen(false)} className="btn-outline-luxury text-[10px] flex-1 py-3 text-center">Sign In</Link>
+                    <Link href="/signup" onClick={() => setIsMobileMenuOpen(false)} className="btn-luxury text-[10px] flex-1 py-3 text-center">Register</Link>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </>
+  );
+};
