@@ -214,32 +214,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Floating Sidebar Right Action Panel */}
-        <div className="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 z-30 flex flex-col items-center bg-black/45 border border-white/10 backdrop-blur-md px-3 py-6 text-white select-none">
-          {/* Wishlist */}
-          <Link href="/wishlist" className="flex flex-col items-center group py-3 text-center transition-colors hover:text-[#C9A96E]">
-            <Heart size={16} className="group-hover:scale-105 transition-transform" />
-            <span className="text-[7.5px] uppercase tracking-[0.25em] font-medium mt-1">Wishlist</span>
-          </Link>
-          
-          {/* Vertical divider line */}
-          <div className="w-[1px] h-6 bg-white/15 my-1" />
 
-          {/* Compare */}
-          <Link href="/shop" className="flex flex-col items-center group py-3 text-center transition-colors hover:text-[#C9A96E]">
-            <Scale size={16} className="group-hover:scale-105 transition-transform" />
-            <span className="text-[7.5px] uppercase tracking-[0.25em] font-medium mt-1">Compare</span>
-          </Link>
-
-          {/* Vertical divider line */}
-          <div className="w-[1px] h-6 bg-white/15 my-1" />
-
-          {/* Quick View */}
-          <button onClick={() => {}} className="flex flex-col items-center group py-3 text-center transition-colors hover:text-[#C9A96E] cursor-pointer bg-transparent border-none">
-            <Eye size={16} className="group-hover:scale-105 transition-transform" />
-            <span className="text-[7.5px] uppercase tracking-[0.25em] font-medium mt-1">Quick View</span>
-          </button>
-        </div>
       </section>
 
       {/* ════════════════════════════════════════════════════════
