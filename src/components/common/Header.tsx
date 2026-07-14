@@ -621,7 +621,7 @@ export const Header: React.FC = () => {
                       ))}
                     </div>
                   </div>
-                  <div className="col-span-4 grid grid-cols-3 gap-6">
+                  <div className="col-span-4 grid grid-cols-6 gap-3">
                     {MEGA_CATEGORIES.map(cat => (
                       <Link
                         key={cat.slug}
@@ -629,7 +629,7 @@ export const Header: React.FC = () => {
                         onClick={() => setHoveredNav(null)}
                         className="group"
                       >
-                        <div className="aspect-[4/3] overflow-hidden bg-[#1a1a1a] mb-3">
+                        <div className="aspect-[4/5] overflow-hidden bg-[#1a1a1a] mb-2 rounded-sm">
                           <img
                             src={cat.img}
                             alt={cat.name}
