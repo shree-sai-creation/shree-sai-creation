@@ -142,64 +142,15 @@ function ShopContent() {
         {/* 2. Unified Controls & Filters */}
         <div className="flex flex-col xl:flex-row items-center justify-between gap-6 mb-8 mt-12 w-full">
           
-          {/* Left Side: Count & Dropdown Filters */}
-          <div className="flex flex-wrap items-center gap-4 xl:gap-6 w-full xl:w-auto text-[9px] uppercase tracking-widest text-white/50">
-            
-            {/* Category Filter */}
-            <div className="flex items-center gap-2">
-              <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="bg-transparent text-white border-b border-white/10 pb-0.5 outline-none cursor-pointer focus:border-[#C5A880]"
-              >
-                <option value="All" className="bg-[#0d0d0d]">All Categories</option>
-                {CATEGORIES.map(cat => (
-                  <option key={cat} value={cat} className="bg-[#0d0d0d]">{cat}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Price Filter */}
-            <div className="flex items-center gap-2">
-              <select
-                value={priceTier}
-                onChange={(e) => setPriceTier(e.target.value)}
-                className="bg-transparent text-white border-b border-white/10 pb-0.5 outline-none cursor-pointer focus:border-[#C5A880]"
-              >
-                <option value="All" className="bg-[#0d0d0d]">All Prices</option>
-                <option value="under-5000" className="bg-[#0d0d0d]">Under ₹5,000</option>
-                <option value="5000-20000" className="bg-[#0d0d0d]">₹5,000 – ₹20,000</option>
-                <option value="over-20000" className="bg-[#0d0d0d]">Over ₹20,000</option>
-              </select>
-            </div>
-
-            {/* Material Filter */}
-            <div className="flex items-center gap-2">
-              <select
-                value={selectedMaterial}
-                onChange={(e) => setSelectedMaterial(e.target.value)}
-                className="bg-transparent text-white border-b border-white/10 pb-0.5 outline-none cursor-pointer focus:border-[#C5A880]"
-              >
-                <option value="All" className="bg-[#0d0d0d]">All Materials</option>
-                {MATERIALS.map(mat => (
-                  <option key={mat} value={mat} className="bg-[#0d0d0d]">{mat}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Finish Filter */}
-            <div className="flex items-center gap-2">
-              <select
-                value={selectedFinish}
-                onChange={(e) => setSelectedFinish(e.target.value)}
-                className="bg-transparent text-white border-b border-white/10 pb-0.5 outline-none cursor-pointer focus:border-[#C5A880]"
-              >
-                <option value="All" className="bg-[#0d0d0d]">All Finishes</option>
-                {FINISHES.map(fin => (
-                  <option key={fin} value={fin} className="bg-[#0d0d0d]">{fin}</option>
-                ))}
-              </select>
-            </div>
+          {/* Left Side: Filter Button */}
+          <div className="flex items-center gap-3 w-full xl:w-auto">
+            <button
+              onClick={() => setIsFilterDrawerOpen(true)}
+              className="flex items-center gap-2 border border-white/10 px-4 py-2 text-xs uppercase tracking-widest text-white/70 hover:text-white transition-colors"
+            >
+              <SlidersHorizontal size={14} />
+              Filters
+            </button>
           </div>
 
           {/* Right Side: Search */}
@@ -381,9 +332,9 @@ function ShopContent() {
         </div>
       </div>
 
-      {/* 5. Mobile Drawer Filters Overlay */}
+      {/* 5. Global Drawer Filters Overlay */}
       {isFilterDrawerOpen && (
-        <div className="fixed inset-0 z-50 flex justify-start lg:hidden">
+        <div className="fixed inset-0 z-50 flex justify-start">
           {/* Backdrop overlay */}
           <div
             onClick={() => setIsFilterDrawerOpen(false)}
@@ -404,6 +355,39 @@ function ShopContent() {
             </div>
 
 
+            {/* Categories Filter */}
+            <div className="space-y-3">
+              <h4 className="font-serif text-[10px] text-[#C5A880] tracking-wider pb-1 border-b border-white/5">
+                Categories
+              </h4>
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={() => {
+                    setSelectedCategory("All");
+                    setIsFilterDrawerOpen(false);
+                  }}
+                  className={`text-left text-white/60 hover:text-white ${
+                    selectedCategory === "All" ? "text-[#C5A880] font-semibold" : ""
+                  }`}
+                >
+                  All Categories
+                </button>
+                {CATEGORIES.map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => {
+                      setSelectedCategory(cat);
+                      setIsFilterDrawerOpen(false);
+                    }}
+                    className={`text-left text-white/60 hover:text-white ${
+                      selectedCategory === cat ? "text-[#C5A880] font-semibold" : ""
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             {/* Price Tiers Filter Mobile */}
             <div className="space-y-3">
