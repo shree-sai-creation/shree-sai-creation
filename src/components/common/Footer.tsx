@@ -19,7 +19,7 @@ export const Footer: React.FC = () => {
     }
   };
 
-  if (pathname === "/signin" || pathname === "/signup") {
+  if (pathname === "/signin" || pathname === "/signup" || pathname === "/admin") {
     return null;
   }
 
