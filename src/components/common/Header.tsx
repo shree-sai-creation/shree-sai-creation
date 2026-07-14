@@ -164,15 +164,17 @@ export const Header: React.FC = () => {
           <div className="flex items-center justify-between h-[85px]">
 
             {/* Mobile Menu Toggle */}
-            <button
-              onClick={() => setIsMobileMenuOpen(true)}
-              className={`md:hidden p-1.5 transition-colors ${
-                theme === "dark" ? "text-white/60 hover:text-white" : "text-black/60 hover:text-black"
-              }`}
-              aria-label="Open menu"
-            >
-              <Menu size={20} />
-            </button>
+            {pathname !== "/admin" && (
+              <button
+                onClick={() => setIsMobileMenuOpen(true)}
+                className={`md:hidden p-1.5 transition-colors ${
+                  theme === "dark" ? "text-white/60 hover:text-white" : "text-black/60 hover:text-black"
+                }`}
+                aria-label="Open menu"
+              >
+                <Menu size={20} />
+              </button>
+            )}
 
             {/* ─── Logo ─── */}
             <Link href="/" className="flex items-center select-none group py-1.5 shrink-0">
@@ -180,32 +182,34 @@ export const Header: React.FC = () => {
             </Link>
 
             {/* ─── Desktop Navigation ─── */}
-            <nav className="hidden md:flex items-center h-full mx-6" onMouseLeave={() => setHoveredNav(null)}>
-              {navLinks.map(link => (
-                <div key={link.name} className="relative h-full flex items-center">
-                  <Link
-                    href={link.href}
-                    onMouseEnter={() => link.hasMega ? setHoveredNav("shop") : setHoveredNav(null)}
-                    className={`px-4 lg:px-5 h-full flex items-center text-[10px] tracking-[0.25em] uppercase font-semibold transition-colors duration-200 group ${
-                      pathname === link.href
-                        ? "text-[#C9A96E]"
-                        : theme === "dark"
-                          ? "text-white/70 hover:text-white"
-                          : "text-black/70 hover:text-black"
-                    }`}
-                  >
-                    <span className="relative py-1">
-                      {link.name}
-                      {/* Active underline */}
-                      <span className={`absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#C9A96E] transition-transform duration-300 origin-left ${
-                        pathname === link.href ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100"
-                      }`} />
-                    </span>
-                    {link.hasMega && <ChevronDown size={10} className="ml-1 opacity-50" />}
-                  </Link>
-                </div>
-              ))}
-            </nav>
+            {pathname !== "/admin" && (
+              <nav className="hidden md:flex items-center h-full mx-6" onMouseLeave={() => setHoveredNav(null)}>
+                {navLinks.map(link => (
+                  <div key={link.name} className="relative h-full flex items-center">
+                    <Link
+                      href={link.href}
+                      onMouseEnter={() => link.hasMega ? setHoveredNav("shop") : setHoveredNav(null)}
+                      className={`px-4 lg:px-5 h-full flex items-center text-[10px] tracking-[0.25em] uppercase font-semibold transition-colors duration-200 group ${
+                        pathname === link.href
+                          ? "text-[#C9A96E]"
+                          : theme === "dark"
+                            ? "text-white/70 hover:text-white"
+                            : "text-black/70 hover:text-black"
+                      }`}
+                    >
+                      <span className="relative py-1">
+                        {link.name}
+                        {/* Active underline */}
+                        <span className={`absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#C9A96E] transition-transform duration-300 origin-left ${
+                          pathname === link.href ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100"
+                        }`} />
+                      </span>
+                      {link.hasMega && <ChevronDown size={10} className="ml-1 opacity-50" />}
+                    </Link>
+                  </div>
+                ))}
+              </nav>
+            )}
 
             {/* ─── Right Actions ─── */}
             <div className={`flex items-center gap-1.5 ${theme === "dark" ? "text-white" : "text-black"}`}>
