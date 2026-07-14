@@ -154,10 +154,10 @@ function ShopContent() {
           </div>
 
           {/* Right Side: Search */}
-          <div className="flex items-center flex-1 max-w-md justify-end">
+          <div className="flex items-center flex-1 max-w-lg justify-end">
 
             {/* Search Input */}
-            <div className="relative w-full sm:w-72 flex items-center border border-white/10 rounded-full bg-[#0d0d0d] px-4 py-2 focus-within:border-white/40 transition-colors">
+            <div className="relative w-full sm:w-80 md:w-96 lg:w-[450px] flex items-center border border-white/10 rounded-full bg-[#0d0d0d] px-4 py-2 focus-within:border-white/40 transition-colors">
               <Search className="text-white/30 mr-2" size={14} />
               <input
                 type="text"
