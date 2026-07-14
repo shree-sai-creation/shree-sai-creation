@@ -139,10 +139,11 @@ function ShopContent() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        {/* 2. Controls & Search Bar */}
-        <div className="flex flex-col gap-6 mb-8 mt-12 bg-black/40 p-4 border border-white/5">
-          <div className="flex flex-col md:flex-row-reverse justify-between items-center gap-6 w-full">
-          <div className="flex items-center gap-3 w-full md:w-auto">
+        {/* 2. Unified Controls & Filters */}
+        <div className="flex flex-col xl:flex-row-reverse items-center justify-between gap-6 mb-8 mt-12 bg-black/40 p-4 border border-white/5 w-full">
+          
+          {/* Search Input (Right) */}
+          <div className="flex items-center gap-3 w-full xl:w-auto">
             {/* Filter Toggle Mobile */}
             <button
               onClick={() => setIsFilterDrawerOpen(true)}
@@ -170,7 +171,71 @@ function ShopContent() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between md:justify-end gap-6 w-full md:w-auto text-xs uppercase tracking-widest">
+          {/* 4 Dropdown Filters (Middle) */}
+          <div className="flex flex-wrap items-center justify-center gap-4 xl:gap-6 w-full xl:w-auto xl:flex-1 text-[9px] uppercase tracking-widest text-white/50 border-t border-b border-white/5 py-4 xl:border-none xl:py-0">
+            {/* Category Filter */}
+            <div className="flex items-center gap-2">
+              <span>Category:</span>
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="bg-transparent text-white border-b border-white/10 pb-0.5 outline-none cursor-pointer focus:border-[#C5A880]"
+              >
+                <option value="All" className="bg-[#0d0d0d]">All Categories</option>
+                {CATEGORIES.map(cat => (
+                  <option key={cat} value={cat} className="bg-[#0d0d0d]">{cat}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Price Filter */}
+            <div className="flex items-center gap-2">
+              <span>Price:</span>
+              <select
+                value={priceTier}
+                onChange={(e) => setPriceTier(e.target.value)}
+                className="bg-transparent text-white border-b border-white/10 pb-0.5 outline-none cursor-pointer focus:border-[#C5A880]"
+              >
+                <option value="All" className="bg-[#0d0d0d]">All Prices</option>
+                <option value="under-5000" className="bg-[#0d0d0d]">Under ₹5,000</option>
+                <option value="5000-20000" className="bg-[#0d0d0d]">₹5,000 – ₹20,000</option>
+                <option value="over-20000" className="bg-[#0d0d0d]">Over ₹20,000</option>
+              </select>
+            </div>
+
+            {/* Material Filter */}
+            <div className="flex items-center gap-2">
+              <span>Material:</span>
+              <select
+                value={selectedMaterial}
+                onChange={(e) => setSelectedMaterial(e.target.value)}
+                className="bg-transparent text-white border-b border-white/10 pb-0.5 outline-none cursor-pointer focus:border-[#C5A880]"
+              >
+                <option value="All" className="bg-[#0d0d0d]">All Materials</option>
+                {MATERIALS.map(mat => (
+                  <option key={mat} value={mat} className="bg-[#0d0d0d]">{mat}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Finish Filter */}
+            <div className="flex items-center gap-2">
+              <span>Finish:</span>
+              <select
+                value={selectedFinish}
+                onChange={(e) => setSelectedFinish(e.target.value)}
+                className="bg-transparent text-white border-b border-white/10 pb-0.5 outline-none cursor-pointer focus:border-[#C5A880]"
+              >
+                <option value="All" className="bg-[#0d0d0d]">All Finishes</option>
+                {FINISHES.map(fin => (
+                  <option key={fin} value={fin} className="bg-[#0d0d0d]">{fin}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Sort, View & Count (Left) */}
+          <div className="flex flex-wrap items-center justify-between xl:justify-start gap-4 xl:gap-6 w-full xl:w-auto text-xs uppercase tracking-widest">
             {/* Found Items Count */}
             <span className="text-[10px] text-white/40 font-medium">
               Showing {filteredProducts.length} pieces
@@ -212,70 +277,6 @@ function ShopContent() {
               </div>
             </div>
           </div>
-        </div>
-
-        {/* Unified Filter Selectors */}
-        <div className="flex flex-wrap items-center justify-center gap-8 pt-6 mt-2 border-t border-white/5 w-full text-[9px] uppercase tracking-widest text-white/50">
-          {/* Category Filter */}
-          <div className="flex items-center gap-2">
-            <span>Category:</span>
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="bg-transparent text-white border-b border-white/10 pb-0.5 outline-none cursor-pointer focus:border-[#C5A880]"
-            >
-              <option value="All" className="bg-[#0d0d0d]">All Categories</option>
-              {CATEGORIES.map(cat => (
-                <option key={cat} value={cat} className="bg-[#0d0d0d]">{cat}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Price Filter */}
-          <div className="flex items-center gap-2">
-            <span>Price:</span>
-            <select
-              value={priceTier}
-              onChange={(e) => setPriceTier(e.target.value)}
-              className="bg-transparent text-white border-b border-white/10 pb-0.5 outline-none cursor-pointer focus:border-[#C5A880]"
-            >
-              <option value="All" className="bg-[#0d0d0d]">All Prices</option>
-              <option value="under-5000" className="bg-[#0d0d0d]">Under ₹5,000</option>
-              <option value="5000-20000" className="bg-[#0d0d0d]">₹5,000 – ₹20,000</option>
-              <option value="over-20000" className="bg-[#0d0d0d]">Over ₹20,000</option>
-            </select>
-          </div>
-
-          {/* Material Filter */}
-          <div className="flex items-center gap-2">
-            <span>Material:</span>
-            <select
-              value={selectedMaterial}
-              onChange={(e) => setSelectedMaterial(e.target.value)}
-              className="bg-transparent text-white border-b border-white/10 pb-0.5 outline-none cursor-pointer focus:border-[#C5A880]"
-            >
-              <option value="All" className="bg-[#0d0d0d]">All Materials</option>
-              {MATERIALS.map(mat => (
-                <option key={mat} value={mat} className="bg-[#0d0d0d]">{mat}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Finish Filter */}
-          <div className="flex items-center gap-2">
-            <span>Finish:</span>
-            <select
-              value={selectedFinish}
-              onChange={(e) => setSelectedFinish(e.target.value)}
-              className="bg-transparent text-white border-b border-white/10 pb-0.5 outline-none cursor-pointer focus:border-[#C5A880]"
-            >
-              <option value="All" className="bg-[#0d0d0d]">All Finishes</option>
-              {FINISHES.map(fin => (
-                <option key={fin} value={fin} className="bg-[#0d0d0d]">{fin}</option>
-              ))}
-            </select>
-          </div>
-        </div>
         </div>
 
         {/* 3. Active Filters Chip Bar */}
