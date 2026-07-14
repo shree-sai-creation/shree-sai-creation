@@ -215,100 +215,104 @@ export const Header: React.FC = () => {
             <div className={`flex items-center gap-1.5 ${theme === "dark" ? "text-white" : "text-black"}`}>
 
               {/* Search */}
-              <div className="relative flex items-center">
-                <div 
-                  className={`flex items-center overflow-hidden transition-all duration-300 ease-out ${
-                    isSearchOpen ? 'w-48 opacity-100 mr-2 border-b' : 'w-0 opacity-0 border-transparent'
-                  } ${theme === "dark" ? "border-white/30" : "border-black/30"}`}
-                >
-                  <input
-                    ref={searchRef}
-                    type="text"
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    placeholder="Search..."
-                    className={`w-full bg-transparent text-[10px] tracking-wider outline-none py-1.5 placeholder:opacity-50 ${
-                      theme === "dark" ? "text-white" : "text-black"
-                    }`}
-                  />
-                  {searchQuery && (
-                    <button onClick={() => setSearchQuery("")} className="ml-1 p-1 opacity-50 hover:opacity-100">
-                      <X size={10} />
-                    </button>
-                  )}
-                </div>
-                <button
-                  onClick={() => {
-                    if (isSearchOpen && !searchQuery) {
-                      setIsSearchOpen(false);
-                    } else {
-                      setIsSearchOpen(true);
-                    }
-                  }}
-                  className="p-2 opacity-60 hover:opacity-100 hover:text-[#C9A96E] transition-all duration-200"
-                  aria-label="Search"
-                >
-                  <Search size={16} />
-                </button>
-
-                {/* Inline Search Results Dropdown */}
-                <AnimatePresence>
-                  {isSearchOpen && searchQuery && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 8, scale: 0.97 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 8, scale: 0.97 }}
-                      transition={{ duration: 0.2 }}
-                      className={`absolute right-0 top-full mt-3 w-72 border shadow-2xl z-50 rounded-xl overflow-hidden max-h-96 overflow-y-auto ${
-                        theme === "dark" 
-                          ? "bg-[#0d0d0d] border-white/10 text-white shadow-black/80" 
-                          : "bg-white border-black/10 text-black shadow-black/5"
+              {pathname !== "/admin" && (
+                <div className="relative flex items-center">
+                  <div 
+                    className={`flex items-center overflow-hidden transition-all duration-300 ease-out ${
+                      isSearchOpen ? 'w-48 opacity-100 mr-2 border-b' : 'w-0 opacity-0 border-transparent'
+                    } ${theme === "dark" ? "border-white/30" : "border-black/30"}`}
+                  >
+                    <input
+                      ref={searchRef}
+                      type="text"
+                      value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                      placeholder="Search..."
+                      className={`w-full bg-transparent text-[10px] tracking-wider outline-none py-1.5 placeholder:opacity-50 ${
+                        theme === "dark" ? "text-white" : "text-black"
                       }`}
-                    >
-                      {searchResults.length > 0 ? (
-                        <div className="p-2 space-y-1">
-                          {searchResults.map(p => (
-                            <Link
-                              key={p.id}
-                              href={`/shop/${p.slug}`}
-                              onClick={() => { setIsSearchOpen(false); setSearchQuery(""); }}
-                              className={`flex items-center gap-3 p-2 rounded-md transition-colors group ${
-                                theme === "dark" ? "hover:bg-white/5" : "hover:bg-black/5"
-                              }`}
-                            >
-                              <img src={p.images[0]} alt={p.name} className="w-10 h-10 object-cover rounded opacity-80 group-hover:opacity-100" />
-                              <div className="min-w-0">
-                                <p className="text-[11px] font-bold truncate group-hover:text-[#C9A96E] transition-colors">{p.name}</p>
-                                <p className={`text-[9px] ${theme === "dark" ? "text-white/40" : "text-black/40"}`}>{p.category} · {formatPrice(p.price)}</p>
-                              </div>
-                            </Link>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="p-4 text-center">
-                          <p className={`text-[10px] tracking-wider uppercase ${theme === "dark" ? "text-white/40" : "text-black/40"}`}>
-                            No results for &quot;{searchQuery}&quot;
-                          </p>
-                        </div>
-                      )}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+                    />
+                    {searchQuery && (
+                      <button onClick={() => setSearchQuery("")} className="ml-1 p-1 opacity-50 hover:opacity-100">
+                        <X size={10} />
+                      </button>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (isSearchOpen && !searchQuery) {
+                        setIsSearchOpen(false);
+                      } else {
+                        setIsSearchOpen(true);
+                      }
+                    }}
+                    className="p-2 opacity-60 hover:opacity-100 hover:text-[#C9A96E] transition-all duration-200"
+                    aria-label="Search"
+                  >
+                    <Search size={16} />
+                  </button>
+
+                  {/* Inline Search Results Dropdown */}
+                  <AnimatePresence>
+                    {isSearchOpen && searchQuery && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 8, scale: 0.97 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 8, scale: 0.97 }}
+                        transition={{ duration: 0.2 }}
+                        className={`absolute right-0 top-full mt-3 w-72 border shadow-2xl z-50 rounded-xl overflow-hidden max-h-96 overflow-y-auto ${
+                          theme === "dark" 
+                            ? "bg-[#0d0d0d] border-white/10 text-white shadow-black/80" 
+                            : "bg-white border-black/10 text-black shadow-black/5"
+                        }`}
+                      >
+                        {searchResults.length > 0 ? (
+                          <div className="p-2 space-y-1">
+                            {searchResults.map(p => (
+                              <Link
+                                key={p.id}
+                                href={`/shop/${p.slug}`}
+                                onClick={() => { setIsSearchOpen(false); setSearchQuery(""); }}
+                                className={`flex items-center gap-3 p-2 rounded-md transition-colors group ${
+                                  theme === "dark" ? "hover:bg-white/5" : "hover:bg-black/5"
+                                }`}
+                              >
+                                <img src={p.images[0]} alt={p.name} className="w-10 h-10 object-cover rounded opacity-80 group-hover:opacity-100" />
+                                <div className="min-w-0">
+                                  <p className="text-[11px] font-bold truncate group-hover:text-[#C9A96E] transition-colors">{p.name}</p>
+                                  <p className={`text-[9px] ${theme === "dark" ? "text-white/40" : "text-black/40"}`}>{p.category} · {formatPrice(p.price)}</p>
+                                </div>
+                              </Link>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="p-4 text-center">
+                            <p className={`text-[10px] tracking-wider uppercase ${theme === "dark" ? "text-white/40" : "text-black/40"}`}>
+                              No results for &quot;{searchQuery}&quot;
+                            </p>
+                          </div>
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              )}
 
               {/* Cart */}
-              <button
-                onClick={() => setIsCartOpen(true)}
-                className="relative p-2 opacity-60 hover:opacity-100 hover:text-[#C9A96E] transition-all duration-200"
-                aria-label="Cart"
-              >
-                <ShoppingCart size={16} />
-                {totalCartItems > 0 && (
-                  <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-[#C9A96E] text-[7.5px] text-black font-bold flex items-center justify-center rounded-full">
-                    {totalCartItems}
-                  </span>
-                )}
-              </button>
+              {pathname !== "/admin" && (
+                <button
+                  onClick={() => setIsCartOpen(true)}
+                  className="relative p-2 opacity-60 hover:opacity-100 hover:text-[#C9A96E] transition-all duration-200"
+                  aria-label="Cart"
+                >
+                  <ShoppingCart size={16} />
+                  {totalCartItems > 0 && (
+                    <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-[#C9A96E] text-[7.5px] text-black font-bold flex items-center justify-center rounded-full">
+                      {totalCartItems}
+                    </span>
+                  )}
+                </button>
+              )}
 
               {/* Profile */}
               <div className="relative">
