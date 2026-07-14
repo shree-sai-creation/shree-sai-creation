@@ -180,7 +180,7 @@ export const Header: React.FC = () => {
                   <Link
                     href={link.href}
                     onMouseEnter={() => link.hasMega ? setHoveredNav("shop") : setHoveredNav(null)}
-                    className={`relative px-4 lg:px-5 h-full flex items-center text-[10px] tracking-[0.25em] uppercase font-semibold transition-colors duration-200 group ${
+                    className={`px-4 lg:px-5 h-full flex items-center text-[10px] tracking-[0.25em] uppercase font-semibold transition-colors duration-200 group ${
                       pathname === link.href
                         ? "text-[#C9A96E]"
                         : theme === "dark"
@@ -188,12 +188,14 @@ export const Header: React.FC = () => {
                           : "text-black/70 hover:text-black"
                     }`}
                   >
-                    {link.name}
+                    <span className="relative py-1">
+                      {link.name}
+                      {/* Active underline */}
+                      <span className={`absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#C9A96E] transition-transform duration-300 origin-left ${
+                        pathname === link.href ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100"
+                      }`} />
+                    </span>
                     {link.hasMega && <ChevronDown size={10} className="ml-1 opacity-50" />}
-                    {/* Active underline */}
-                    <span className={`absolute bottom-0 left-4 lg:left-5 right-4 lg:right-5 h-[1.5px] bg-[#C9A96E] transition-transform duration-300 origin-left ${
-                      pathname === link.href ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100"
-                    }`} />
                   </Link>
                 </div>
               ))}
