@@ -145,11 +145,6 @@ function ShopContent() {
           {/* Left Side: Count & Dropdown Filters */}
           <div className="flex flex-wrap items-center gap-4 xl:gap-6 w-full xl:w-auto text-[9px] uppercase tracking-widest text-white/50">
             
-            {/* Found Items Count */}
-            <span className="text-[10px] text-[#C5A880] font-medium mr-4 xl:mr-2">
-              Showing {filteredProducts.length} pieces
-            </span>
-
             {/* Category Filter */}
             <div className="flex items-center gap-2">
               <span>Category:</span>
