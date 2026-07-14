@@ -242,17 +242,6 @@ function ShopContent() {
             </span>
 
             <div className="flex items-center gap-4">
-              {/* Sort Selection */}
-              <select
-                value={sortOption}
-                onChange={(e) => setSortOption(e.target.value)}
-                className="bg-[#0d0d0d] border border-white/10 text-white/80 hover:text-white text-[10px] tracking-widest uppercase px-3 py-2 outline-none focus:border-white/40 cursor-pointer"
-              >
-                <option value="default">Sort: Default</option>
-                <option value="priceAsc">Price: Low to High</option>
-                <option value="priceDesc">Price: High to Low</option>
-                <option value="rating">Rating: High to Low</option>
-              </select>
 
               {/* Grid/List layout toggle */}
               <div className="hidden sm:flex border border-white/10 p-0.5 bg-[#0d0d0d]">
