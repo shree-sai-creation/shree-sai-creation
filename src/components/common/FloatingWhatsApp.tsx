@@ -1,8 +1,14 @@
 "use client";
 
 import React from "react";
+import { usePathname } from "next/navigation";
 
 export const FloatingWhatsApp = () => {
+  const pathname = usePathname();
+
+  if (pathname === "/signin" || pathname === "/signup") {
+    return null;
+  }
   return (
     <a
       href="https://wa.me/919999999999" // Replace with actual WhatsApp number

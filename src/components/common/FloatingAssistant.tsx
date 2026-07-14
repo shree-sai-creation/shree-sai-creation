@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { X, Send } from "lucide-react";
+import { usePathname } from "next/navigation";
 
 const AiIcon = ({ size = 28, className = "" }) => (
   <svg
@@ -20,7 +21,12 @@ const AiIcon = ({ size = 28, className = "" }) => (
 );
 
 export const FloatingAssistant = () => {
+  const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
+
+  if (pathname === "/signin" || pathname === "/signup") {
+    return null;
+  }
   const [messages, setMessages] = useState([
     { role: "bot", text: "Hello! Welcome to Shree Sai Creation. How can I assist you with our luxury lighting collection today?" }
   ]);
