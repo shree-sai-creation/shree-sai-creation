@@ -205,13 +205,86 @@ export const Header: React.FC = () => {
             <div className={`flex items-center gap-1.5 ${theme === "dark" ? "text-white" : "text-black"}`}>
 
               {/* Search */}
-              <button
-                onClick={() => setIsSearchOpen(true)}
-                className="p-2 opacity-60 hover:opacity-100 hover:text-[#C9A96E] transition-all duration-200"
-                aria-label="Search"
-              >
-                <Search size={16} />
-              </button>
+              <div className="relative flex items-center">
+                <div 
+                  className={`flex items-center overflow-hidden transition-all duration-300 ease-out ${
+                    isSearchOpen ? 'w-48 opacity-100 mr-2 border-b' : 'w-0 opacity-0 border-transparent'
+                  } ${theme === "dark" ? "border-white/30" : "border-black/30"}`}
+                >
+                  <input
+                    ref={searchRef}
+                    type="text"
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    placeholder="Search..."
+                    className={`w-full bg-transparent text-[10px] tracking-wider outline-none py-1.5 placeholder:opacity-50 ${
+                      theme === "dark" ? "text-white" : "text-black"
+                    }`}
+                  />
+                  {searchQuery && (
+                    <button onClick={() => setSearchQuery("")} className="ml-1 p-1 opacity-50 hover:opacity-100">
+                      <X size={10} />
+                    </button>
+                  )}
+                </div>
+                <button
+                  onClick={() => {
+                    if (isSearchOpen && !searchQuery) {
+                      setIsSearchOpen(false);
+                    } else {
+                      setIsSearchOpen(true);
+                    }
+                  }}
+                  className="p-2 opacity-60 hover:opacity-100 hover:text-[#C9A96E] transition-all duration-200"
+                  aria-label="Search"
+                >
+                  <Search size={16} />
+                </button>
+
+                {/* Inline Search Results Dropdown */}
+                <AnimatePresence>
+                  {isSearchOpen && searchQuery && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 8, scale: 0.97 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 8, scale: 0.97 }}
+                      transition={{ duration: 0.2 }}
+                      className={`absolute right-0 top-full mt-3 w-72 border shadow-2xl z-50 rounded-xl overflow-hidden max-h-96 overflow-y-auto ${
+                        theme === "dark" 
+                          ? "bg-[#0d0d0d] border-white/10 text-white shadow-black/80" 
+                          : "bg-white border-black/10 text-black shadow-black/5"
+                      }`}
+                    >
+                      {searchResults.length > 0 ? (
+                        <div className="p-2 space-y-1">
+                          {searchResults.map(p => (
+                            <Link
+                              key={p.id}
+                              href={`/shop/${p.slug}`}
+                              onClick={() => { setIsSearchOpen(false); setSearchQuery(""); }}
+                              className={`flex items-center gap-3 p-2 rounded-md transition-colors group ${
+                                theme === "dark" ? "hover:bg-white/5" : "hover:bg-black/5"
+                              }`}
+                            >
+                              <img src={p.images[0]} alt={p.name} className="w-10 h-10 object-cover rounded opacity-80 group-hover:opacity-100" />
+                              <div className="min-w-0">
+                                <p className="text-[11px] font-bold truncate group-hover:text-[#C9A96E] transition-colors">{p.name}</p>
+                                <p className={`text-[9px] ${theme === "dark" ? "text-white/40" : "text-black/40"}`}>{p.category} · {formatPrice(p.price)}</p>
+                              </div>
+                            </Link>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="p-4 text-center">
+                          <p className={`text-[10px] tracking-wider uppercase ${theme === "dark" ? "text-white/40" : "text-black/40"}`}>
+                            No results for &quot;{searchQuery}&quot;
+                          </p>
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
 
               {/* Cart */}
               <button
@@ -545,56 +618,7 @@ export const Header: React.FC = () => {
         </AnimatePresence>
       </header>
 
-      {/* ─── Search Overlay ───────────────────────────────────────── */}
-      <AnimatePresence>
-        {isSearchOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col"
-          >
-            <div className="max-w-3xl mx-auto w-full px-6 pt-24">
-              <div className="flex items-center gap-4 border-b border-white/10 pb-4">
-                <Search size={18} className="text-white/30 shrink-0" />
-                <input
-                  ref={searchRef}
-                  type="text"
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="Search chandeliers, pendants, lamps..."
-                  className="flex-1 bg-transparent text-white text-lg font-light placeholder:text-white/20 outline-none"
-                />
-                <button onClick={() => { setIsSearchOpen(false); setSearchQuery(""); }} className="text-white/40 hover:text-white transition-colors p-1.5">
-                  <X size={18} />
-                </button>
-              </div>
 
-              {searchResults.length > 0 && (
-                <div className="mt-6 space-y-2">
-                  {searchResults.map(p => (
-                    <Link
-                      key={p.id}
-                      href={`/shop/${p.slug}`}
-                      onClick={() => { setIsSearchOpen(false); setSearchQuery(""); }}
-                      className="flex items-center gap-4 p-3 hover:bg-white/3 transition-colors group"
-                    >
-                      <img src={p.images[0]} alt={p.name} className="w-12 h-12 object-cover opacity-70 group-hover:opacity-100 transition-opacity" />
-                      <div>
-                        <p className="text-sm text-white group-hover:text-[#C9A96E] transition-colors">{p.name}</p>
-                        <p className="text-xs text-white/30">{p.category} · {formatPrice(p.price)}</p>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              )}
-              {searchQuery && searchResults.length === 0 && (
-                <p className="mt-8 text-white/30 text-sm">No results for &quot;{searchQuery}&quot;</p>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* ─── Cart Drawer ──────────────────────────────────────────── */}
       <AnimatePresence>
