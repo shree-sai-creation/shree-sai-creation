@@ -6,8 +6,9 @@ import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { ShoppingCart, Heart, Search, Menu, X, Trash2, Plus, Minus, ArrowRight, User, ChevronDown, LogOut, Package, Settings, CreditCard, Compass, Sun, Moon } from "lucide-react";
 import { useCart } from "@/context/CartContext";
-import { PRODUCTS } from "@/data/products";
+import { PRODUCTS, Product } from "@/data/products";
 import { Logo } from "@/components/common/Logo";
+import { getStoredProducts } from "@/utils/db";
 
 
 
@@ -35,10 +36,15 @@ export const Header: React.FC = () => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [user, setUser] = useState<{ email: string; name: string; role: string } | null>(null);
   const [scrolled, setScrolled] = useState(false);
+  const [products, setProducts] = useState<Product[]>([]);
 
   const searchRef = useRef<HTMLInputElement>(null);
 
   const totalCartItems = cart.reduce((s, i) => s + i.quantity, 0);
+
+  useEffect(() => {
+    setProducts(getStoredProducts());
+  }, [isSearchOpen]);
 
   // Scroll detection
   useEffect(() => {
@@ -68,7 +74,7 @@ export const Header: React.FC = () => {
   }, [pathname]);
 
   const searchResults = searchQuery
-    ? PRODUCTS.filter(p =>
+    ? products.filter(p =>
         p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.category.toLowerCase().includes(searchQuery.toLowerCase())
       ).slice(0, 6)

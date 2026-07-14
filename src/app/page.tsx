@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import Link from "next/link";
 import { 
   ArrowRight, 
@@ -18,8 +18,9 @@ import {
   ArrowRight as ArrowRightIcon 
 } from "lucide-react";
 import { useCart } from "@/context/CartContext";
-import { PRODUCTS } from "@/data/products";
+import { PRODUCTS, Product } from "@/data/products";
 import { ProductCard } from "@/components/shop/ProductCard";
+import { getStoredProducts } from "@/utils/db";
 
 // ── Hero slides ──────────────────────────────────────────────
 const HERO_SLIDES = [
@@ -103,8 +104,16 @@ export default function HomePage() {
     return () => clearInterval(interval);
   }, []);
 
+  const [products, setProducts] = useState<Product[]>([]);
+
+  useEffect(() => {
+    setProducts(getStoredProducts());
+  }, []);
+
   // Filter out the 5 specific Shree Sai chandeliers for the Best Sellers carousel
-  const bestSellers = PRODUCTS.filter(p => p.id.startsWith("prod_shreesai_"));
+  const bestSellers = useMemo(() => {
+    return products.filter(p => p.id.startsWith("prod_shreesai_"));
+  }, [products]);
 
   const scrollLeft = () => {
     if (carouselRef.current) {

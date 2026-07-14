@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCart } from "@/context/CartContext";
 import { CreditCard, Landmark, CheckCircle, ArrowRight, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { addOrder } from "@/utils/db";
 
 export default function CheckoutPage() {
   const { cart, clearCart, subtotal, discountAmount, tax, shipping, total, formatPrice } = useCart();
@@ -12,6 +13,7 @@ export default function CheckoutPage() {
   // Checkout phase: form -> success
   const [isCompleted, setIsCompleted] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"card" | "wire">("card");
+  const [orderNumber, setOrderNumber] = useState("");
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -29,15 +31,38 @@ export default function CheckoutPage() {
 
   const handleOrderSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const generatedOrderNum = `AUR-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    setOrderNumber(generatedOrderNum);
+
+    const newOrder = {
+      id: generatedOrderNum,
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      email: formData.email,
+      address: formData.address,
+      city: formData.city,
+      state: formData.state,
+      zip: formData.zip,
+      phone: formData.phone,
+      items: cart.map(item => ({
+        id: item.product.id,
+        name: item.product.name,
+        price: item.product.price,
+        quantity: item.quantity,
+        image: item.product.images?.[0] || ""
+      })),
+      subtotal,
+      total,
+    };
+
     // Simulate payment transaction delays
     setTimeout(() => {
+      addOrder(newOrder);
       setIsCompleted(true);
       clearCart();
     }, 1200);
   };
 
-  // Receipt details mock
-  const orderNumber = "AUR-2026-9482";
   const estimatedArrival = "AUGUST 24 - SEPTEMBER 02, 2026";
 
   if (isCompleted) {

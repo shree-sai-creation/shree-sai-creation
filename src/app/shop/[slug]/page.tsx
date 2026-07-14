@@ -9,6 +9,7 @@ import { Heart, Share2, Star, ArrowLeft, Plus, Minus, Info } from "lucide-react"
 import { Button } from "@/components/ui/button";
 import { ScrollReveal } from "@/components/animation/ScrollReveal";
 import { ProductCard } from "@/components/shop/ProductCard";
+import { getStoredProducts } from "@/utils/db";
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>;
@@ -18,14 +19,18 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
   // Unwrap params using React.use()
   const { slug } = use(params);
 
+  const [products, setProducts] = useState<Product[]>(PRODUCTS);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  useEffect(() => {
+    setProducts(getStoredProducts());
+    setIsLoaded(true);
+  }, []);
+
   // Retrieve matching product
   const product = useMemo(() => {
-    return PRODUCTS.find((p) => p.slug === slug);
-  }, [slug]);
-
-  if (!product) {
-    notFound();
-  }
+    return products.find((p) => p.slug === slug);
+  }, [products, slug]);
 
   const { addToCart, toggleWishlist, isInWishlist, formatPrice } = useCart();
 
@@ -46,28 +51,46 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
       
       // Load products objects for recently viewed list (excluding current)
       const recentSlugs = list.filter((id) => id !== product.id);
-      const recentProds = PRODUCTS.filter((p) => recentSlugs.includes(p.id));
+      const recentProds = products.filter((p) => recentSlugs.includes(p.id));
       setRecentlyViewed(recentProds);
     }
-  }, [product]);
+  }, [product, products]);
 
   // Active state handlers
   const [activeImageIdx, setActiveImageIdx] = useState(0);
   const [zoomStyle, setZoomStyle] = useState({ display: "none", transform: "scale(1)", transformOrigin: "0% 0%" });
-  const [selectedFinish, setSelectedFinish] = useState(
-    product.finish.split(",")[0]?.trim() || ""
-  );
+  const [selectedFinish, setSelectedFinish] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [activeAccordion, setActiveAccordion] = useState<string | null>("specifications");
   const [copiedShare, setCopiedShare] = useState(false);
 
-  const finishesList = product.finish.split(",").map((f) => f.trim());
-  const discountedPrice = product.price * (1 - product.discount / 100);
+  // Sync selected finish when product is loaded
+  useEffect(() => {
+    if (product) {
+      setSelectedFinish(product.finish.split(",")[0]?.trim() || "");
+    }
+  }, [product]);
 
   // Generate Related Products list
   const relatedList = useMemo(() => {
-    return PRODUCTS.filter((p) => product.relatedProducts.includes(p.id));
-  }, [product]);
+    if (!product) return [];
+    return products.filter((p) => product.relatedProducts.includes(p.id));
+  }, [products, product]);
+
+  if (isLoaded && !product) {
+    notFound();
+  }
+
+  if (!product) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center text-xs uppercase tracking-widest text-white/40">
+        Loading product...
+      </div>
+    );
+  }
+
+  const finishesList = product.finish.split(",").map((f) => f.trim());
+  const discountedPrice = product.price * (1 - product.discount / 100);
 
   // Image zoom handler on hover
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {

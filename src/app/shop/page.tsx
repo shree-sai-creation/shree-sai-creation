@@ -3,15 +3,23 @@
 import React, { useState, useMemo, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
-import { PRODUCTS, CATEGORIES, MATERIALS, FINISHES } from "@/data/products";
+import { PRODUCTS, CATEGORIES, MATERIALS, FINISHES, Product } from "@/data/products";
 import { ProductCard } from "@/components/shop/ProductCard";
 import { SlidersHorizontal, Grid, List, X, Search, RotateCcw } from "lucide-react";
 import { useCart } from "@/context/CartContext";
+import { getStoredProducts } from "@/utils/db";
 
 function ShopContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { formatPrice } = useCart();
+
+  // Dynamic products list state
+  const [products, setProducts] = useState<Product[]>([]);
+
+  useEffect(() => {
+    setProducts(getStoredProducts());
+  }, []);
 
   // Read URL parameters if set, for seamless mega menu routing
   const urlCategory = searchParams.get("category");
@@ -61,7 +69,7 @@ function ShopContent() {
 
   // Filtering products
   const filteredProducts = useMemo(() => {
-    let result = [...PRODUCTS];
+    let result = [...products];
 
     // Search query match
     if (searchQuery) {
