@@ -213,7 +213,7 @@ export default function SignUpPage() {
       <div className="hidden md:block md:w-[55%] relative overflow-hidden bg-[#0d0d0d] min-h-[500px]">
         <div className="absolute inset-0 bg-black/40 z-10" />
         <img
-          src="https://images.unsplash.com/photo-1517999144091-3d9dca6d1e43?q=80&w=1200"
+          src="https://images.unsplash.com/photo-1567538096630-e0c55bd6374c?q=80&w=1200"
           alt="Luxury Lighting Showcase"
           className="absolute inset-0 w-full h-full object-cover select-none scale-105 hover:scale-100 transition-transform duration-[6s] cubic-bezier(0.16, 1, 0.3, 1)"
         />
