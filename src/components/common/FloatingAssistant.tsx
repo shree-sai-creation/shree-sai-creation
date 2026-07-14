@@ -28,7 +28,7 @@ export const FloatingAssistant = () => {
   ]);
   const [input, setInput] = useState("");
 
-  if (pathname === "/signin" || pathname === "/signup") {
+  if (pathname === "/signin" || pathname === "/signup" || pathname === "/admin") {
     return null;
   }
 
