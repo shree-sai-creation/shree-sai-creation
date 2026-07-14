@@ -260,7 +260,7 @@ export default function AdminPage() {
     <div className="min-h-[calc(100vh-85px)] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] font-sans flex">
       
       {/* ── Left Navigation Drawer ──────────────────────────────── */}
-      <aside className="w-64 border-r border-[rgb(var(--border))] hidden md:flex flex-col bg-[rgb(var(--surface))] shrink-0 py-8 px-5 justify-between">
+      <aside className="w-64 border-r border-[rgb(var(--border))] hidden md:flex flex-col bg-[rgb(var(--surface))] shrink-0 py-8 px-5 justify-between sticky top-[85px] h-[calc(100vh-85px)] overflow-y-auto">
         <div className="space-y-8">
           <div>
             <span className="text-[9px] tracking-[0.4em] uppercase text-[rgb(var(--gold))] font-medium block">
