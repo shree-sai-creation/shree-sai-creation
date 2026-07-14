@@ -147,7 +147,6 @@ function ShopContent() {
             
             {/* Category Filter */}
             <div className="flex items-center gap-2">
-              <span>Category:</span>
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
@@ -162,7 +161,6 @@ function ShopContent() {
 
             {/* Price Filter */}
             <div className="flex items-center gap-2">
-              <span>Price:</span>
               <select
                 value={priceTier}
                 onChange={(e) => setPriceTier(e.target.value)}
@@ -177,7 +175,6 @@ function ShopContent() {
 
             {/* Material Filter */}
             <div className="flex items-center gap-2">
-              <span>Material:</span>
               <select
                 value={selectedMaterial}
                 onChange={(e) => setSelectedMaterial(e.target.value)}
@@ -192,7 +189,6 @@ function ShopContent() {
 
             {/* Finish Filter */}
             <div className="flex items-center gap-2">
-              <span>Finish:</span>
               <select
                 value={selectedFinish}
                 onChange={(e) => setSelectedFinish(e.target.value)}
