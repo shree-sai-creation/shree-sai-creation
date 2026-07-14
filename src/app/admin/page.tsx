@@ -90,7 +90,7 @@ export default function AdminPage() {
       // Load db lists
       setProducts(getStoredProducts());
       setOrders(getStoredOrders());
-    } catch (e) {
+    } catch {
       router.push("/signin");
     }
   }, [router]);
@@ -279,7 +279,7 @@ export default function AdminPage() {
             ].map(tab => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
+                onClick={() => setActiveTab(tab.id as "dashboard" | "products" | "orders")}
                 className={`flex items-center gap-3 px-4 py-3 rounded-lg text-xs uppercase tracking-wider transition-all text-left ${
                   activeTab === tab.id
                     ? "bg-[rgb(var(--gold))] text-black font-semibold shadow-md"
@@ -314,7 +314,7 @@ export default function AdminPage() {
             {["dashboard", "products", "orders"].map((tab) => (
               <button
                 key={tab}
-                onClick={() => setActiveTab(tab as any)}
+                onClick={() => setActiveTab(tab as "dashboard" | "products" | "orders")}
                 className={`text-[9px] uppercase tracking-widest px-3 py-1.5 rounded-full border transition-all ${
                   activeTab === tab 
                     ? "bg-[rgb(var(--gold))] text-black border-[rgb(var(--gold))] font-medium" 
@@ -649,7 +649,7 @@ export default function AdminPage() {
                           <td className="p-4 pr-6">
                             <select
                               value={order.status}
-                              onChange={(e) => handleOrderStatusChange(order.id, e.target.value as any)}
+                              onChange={(e) => handleOrderStatusChange(order.id, e.target.value as "Pending" | "Crating" | "Shipped" | "Delivered")}
                               className={`text-[9px] tracking-widest uppercase font-semibold border-b border-[rgb(var(--border))] bg-[rgb(var(--surface))] py-1 outline-none cursor-pointer focus:border-[rgb(var(--gold))] ${
                                 order.status === "Pending" ? "text-amber-400" :
                                 order.status === "Crating" ? "text-[#C5A880]" :
