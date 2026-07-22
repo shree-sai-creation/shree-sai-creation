@@ -25,7 +25,7 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
   useEffect(() => {
     const fetchProductDetail = async () => {
       try {
-        const res = await fetch(`/api/v1/products/${slug}`);
+        const res = await fetch(`/api/v1/products/slug/${encodeURIComponent(slug)}`);
         const data = await res.json();
         if (res.ok && data.product) {
           const mapped = mapBackendProductToFrontend(data.product);
