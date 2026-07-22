@@ -24,6 +24,55 @@ import { useCart } from "@/context/CartContext";
 import { Button } from "@/components/ui/button";
 import { Product } from "@/data/products";
 
+function downloadSampleCsv() {
+  const headers = "name,description,category,price,compare_at_price,discount,stock,images,material,finish,bulbs,dimensions,features";
+  const row1 = '"Royal Crystal Chandelier","Luxury K9 crystal chandelier","Chandelier",119999,150000,20,5,"https://images.unsplash.com/photo-1540932239986-30128078f3c5","Solid Brass, K9 Crystal","Polished Gold","18 x E12 LED","36 in x 48 in","Precision cut crystals, Handcrafted frame"';
+  const row2 = '"Aurora Modern Gold Pendant","Contemporary geometric pendant light","Pendant",45999,60000,23,8,"https://images.unsplash.com/photo-1565814636199-ae8133055c1c","Aluminum, Brass","Brushed Brass","Integrated LED","24 in x 30 in","Dimmable glow, Modern geometric shape"';
+  const csvContent = "data:text/csv;charset=utf-8," + [headers, row1, row2].join("\n");
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement("a");
+  link.setAttribute("href", encodedUri);
+  link.setAttribute("download", "shree_sai_products_sample.csv");
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+function parseCsvToProducts(csvText: string): Record<string, unknown>[] {
+  const lines = csvText.split(/\r?\n/).filter(line => line.trim().length > 0);
+  if (lines.length < 2) return [];
+
+  const headers = lines[0].split(",").map(h => h.replace(/^["']|["']$/g, "").trim());
+  const products: Record<string, unknown>[] = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const regex = /(?:^|,)(?:"([^"]*)"|([^,]*))/g;
+    const row: string[] = [];
+    let match;
+    while ((match = regex.exec(lines[i])) !== null) {
+      let val = match[1] !== undefined ? match[1] : match[2];
+      row.push(val ? val.trim() : "");
+    }
+
+    if (row.length === 0 || !row[0]) continue;
+
+    const obj: Record<string, unknown> = {};
+    headers.forEach((h, idx) => {
+      let val: unknown = row[idx] || "";
+      if (h === "price" || h === "compare_at_price" || h === "discount" || h === "stock" || h === "rating") {
+        val = Number(val) || 0;
+      }
+      obj[h] = val;
+    });
+
+    if (obj.name) {
+      products.push(obj);
+    }
+  }
+
+  return products;
+}
+
 interface DbOrderItem {
   productId: string;
   productName: string;
@@ -120,6 +169,108 @@ export default function AdminPage() {
 
   const [isOrdersLoading, setIsOrdersLoading] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+
+  // Bulk Import States
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [bulkText, setBulkText] = useState("");
+  const [bulkParsedProducts, setBulkParsedProducts] = useState<Record<string, unknown>[]>([]);
+  const [isBulkImporting, setIsBulkImporting] = useState(false);
+  const [bulkImportStatus, setBulkImportStatus] = useState("");
+
+  const handleBulkFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      setBulkText(content);
+      parseAndSetBulkProducts(content);
+    };
+    reader.readAsText(file);
+  };
+
+  const parseAndSetBulkProducts = (content: string) => {
+    setBulkImportStatus("");
+    try {
+      const trimmed = content.trim();
+      if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
+        const parsed = JSON.parse(trimmed);
+        const list = Array.isArray(parsed) ? parsed : [parsed];
+        setBulkParsedProducts(list);
+        setBulkImportStatus(`Parsed ${list.length} products from JSON.`);
+      } else {
+        const parsed = parseCsvToProducts(trimmed);
+        setBulkParsedProducts(parsed);
+        setBulkImportStatus(`Parsed ${parsed.length} products from CSV.`);
+      }
+    } catch {
+      setBulkParsedProducts([]);
+      setBulkImportStatus("Error parsing file. Please check CSV/JSON format.");
+    }
+  };
+
+  const handleBulkSubmit = async () => {
+    if (bulkParsedProducts.length === 0) {
+      alert("No valid products to import. Please select a CSV/JSON file or paste product data.");
+      return;
+    }
+
+    const storedUser = localStorage.getItem("shree_sai_user");
+    const parsedUser = storedUser ? JSON.parse(storedUser) : null;
+    const token = parsedUser?.token;
+
+    setIsBulkImporting(true);
+    try {
+      const res = await fetch("/api/v1/admin/products/bulk", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ products: bulkParsedProducts })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Bulk import failed");
+
+      alert(data.message || `Successfully imported ${bulkParsedProducts.length} products!`);
+      setIsBulkModalOpen(false);
+      setBulkText("");
+      setBulkParsedProducts([]);
+      
+      // Reload products list from DB
+      const pRes = await fetch("/api/v1/products");
+      const pData = await pRes.json();
+      if (pRes.ok && pData.products) {
+        const mapped = pData.products.map((p: Record<string, unknown>) => ({
+          id: String(p.id),
+          name: p.name as string,
+          slug: p.slug as string,
+          description: (p.description as string) || "",
+          category: (p.category as string) || "Chandelier",
+          price: p.price as number,
+          discount: (p.discount as number) || 0,
+          rating: (p.rating as number) || 5,
+          reviews: [],
+          dimensions: (p.dimensions as string) || "",
+          material: (p.material as string) || "",
+          finish: (p.finish as string) || "",
+          bulbs: (p.bulbs as string) || "",
+          stock: (p.stock as number) || 0,
+          images: (p.images as string[]) || [],
+          features: (p.features as string[]) || [],
+          specifications: (p.specifications as Record<string, string>) || {},
+          relatedProducts: (p.related_products as string[]) || []
+        }));
+        setProducts(mapped);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Bulk import failed";
+      alert(msg);
+    } finally {
+      setIsBulkImporting(false);
+    }
+  };
 
   const handleImageFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -601,13 +752,22 @@ export default function AdminPage() {
           </div>
 
           {activeTab === "products" && (
-            <Button
-              onClick={handleOpenAddModal}
-              variant="gold"
-              className="flex items-center gap-2 rounded-none px-5 text-xs tracking-wider uppercase font-semibold h-11"
-            >
-              <Plus size={15} /> Add Statement Chandelier
-            </Button>
+            <div className="flex items-center gap-3 flex-wrap">
+              <Button
+                onClick={() => setIsBulkModalOpen(true)}
+                variant="outline"
+                className="flex items-center gap-2 rounded-none px-4 text-xs tracking-wider uppercase font-semibold h-11 border-[rgb(var(--gold))]/40 text-[rgb(var(--gold))] hover:bg-[rgb(var(--gold))]/10"
+              >
+                <Upload size={15} /> Bulk Import (CSV / JSON)
+              </Button>
+              <Button
+                onClick={handleOpenAddModal}
+                variant="gold"
+                className="flex items-center gap-2 rounded-none px-5 text-xs tracking-wider uppercase font-semibold h-11"
+              >
+                <Plus size={15} /> Add Statement Chandelier
+              </Button>
+            </div>
           )}
         </div>
 
@@ -1363,6 +1523,158 @@ export default function AdminPage() {
               </div>
 
             </form>
+
+          </div>
+        </div>
+      )}
+
+      {/* ── Bulk Import Products Modal Overlay ──────────────────── */}
+      {isBulkModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-[4px] p-4">
+          <div className="w-full max-w-3xl bg-[rgb(var(--background))] border border-[rgb(var(--border))] rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+            
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-6 py-4">
+              <div className="space-y-1">
+                <span className="text-[9px] uppercase tracking-widest text-[rgb(var(--gold))] font-medium block">
+                  Database Batch Operations
+                </span>
+                <h3 className="font-serif text-lg tracking-wider text-[rgb(var(--foreground))]">
+                  Bulk Import Products to Server Database
+                </h3>
+              </div>
+              <button
+                onClick={() => setIsBulkModalOpen(false)}
+                className="text-[rgb(var(--text-secondary))] hover:text-[rgb(var(--foreground))] transition-colors p-1"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 overflow-y-auto space-y-6 text-[10px] uppercase tracking-wider text-[rgb(var(--text-muted))]">
+              
+              {/* Info & Sample CSV Download banner */}
+              <div className="bg-[rgb(var(--surface))] border border-[rgb(var(--border))] p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <p className="text-[rgb(var(--foreground))] font-semibold">Upload CSV or JSON File to Server</p>
+                  <p className="text-[9px] text-[rgb(var(--text-muted))] normal-case font-light">
+                    All imported products are saved directly into the server database. You can edit or delete them anytime from the Admin Panel.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={downloadSampleCsv}
+                  className="px-4 py-2 border border-[rgb(var(--gold))]/40 text-[rgb(var(--gold))] hover:bg-[rgb(var(--gold))]/10 rounded text-[9px] font-semibold tracking-wider shrink-0 transition-colors uppercase"
+                >
+                  📥 Download Sample CSV
+                </button>
+              </div>
+
+              {/* File Upload Drop Area */}
+              <div className="space-y-2">
+                <label className="block font-semibold">Select File (.csv or .json)</label>
+                <div className="border-2 border-dashed border-[rgb(var(--border))] hover:border-[rgb(var(--gold))]/60 transition-colors rounded-xl p-6 bg-[rgb(var(--surface))] text-center space-y-3">
+                  <Upload size={28} className="mx-auto text-[rgb(var(--gold))]" />
+                  <div>
+                    <p className="text-[rgb(var(--foreground))] font-semibold">Click to choose a CSV or JSON file</p>
+                    <p className="text-[8px] text-[rgb(var(--text-muted))] normal-case mt-0.5 font-light">
+                      Supports spreadsheet CSVs or raw JSON product arrays
+                    </p>
+                  </div>
+                  <label className="inline-block px-5 py-2.5 bg-[rgb(var(--gold))] text-black font-semibold rounded text-[9px] tracking-widest cursor-pointer uppercase hover:opacity-90 transition-opacity">
+                    Browse File
+                    <input
+                      type="file"
+                      accept=".csv, .json, text/csv, application/json"
+                      onChange={handleBulkFileChange}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {/* Or Paste Raw Text */}
+              <div className="space-y-2">
+                <label className="block font-semibold">Or Paste Raw CSV / JSON Data</label>
+                <textarea
+                  rows={5}
+                  value={bulkText}
+                  onChange={(e) => {
+                    setBulkText(e.target.value);
+                    parseAndSetBulkProducts(e.target.value);
+                  }}
+                  placeholder="Paste CSV rows or JSON array here..."
+                  className="w-full bg-[rgb(var(--surface))] border border-[rgb(var(--border))] rounded-lg text-[9.5px] font-mono tracking-normal text-[rgb(var(--foreground))] p-3 focus:outline-none focus:border-[rgb(var(--gold))]/60 transition-colors"
+                />
+              </div>
+
+              {/* Parse Status / Feedback */}
+              {bulkImportStatus && (
+                <div className={`p-3 rounded-lg text-[9.5px] font-medium tracking-wider uppercase ${
+                  bulkParsedProducts.length > 0
+                    ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
+                    : "bg-red-500/10 border border-red-500/20 text-red-400"
+                }`}>
+                  {bulkImportStatus}
+                </div>
+              )}
+
+              {/* Preview Table if items parsed */}
+              {bulkParsedProducts.length > 0 && (
+                <div className="space-y-2">
+                  <span className="block font-semibold text-[rgb(var(--gold))]">
+                    Preview Products ({bulkParsedProducts.length} Items Ready to Import):
+                  </span>
+                  <div className="max-h-48 overflow-y-auto border border-[rgb(var(--border))] rounded-xl">
+                    <table className="w-full text-left text-[9px] uppercase border-collapse">
+                      <thead className="bg-[rgb(var(--surface))] sticky top-0 border-b border-[rgb(var(--border))] text-[rgb(var(--gold))]">
+                        <tr>
+                          <th className="p-2.5">Name</th>
+                          <th className="p-2.5">Category</th>
+                          <th className="p-2.5">Price</th>
+                          <th className="p-2.5">Stock</th>
+                          <th className="p-2.5">Material</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[rgb(var(--border))]">
+                        {bulkParsedProducts.map((p, idx) => (
+                          <tr key={idx} className="hover:bg-[rgba(var(--foreground),0.02)]">
+                            <td className="p-2.5 font-medium text-[rgb(var(--foreground))]">{String(p.name || "")}</td>
+                            <td className="p-2.5 text-[rgb(var(--text-muted))]">{String(p.category || "Chandelier")}</td>
+                            <td className="p-2.5 text-[rgb(var(--foreground))]">₹{Number(p.price || 0).toLocaleString()}</td>
+                            <td className="p-2.5 text-[rgb(var(--text-muted))]">{Number(p.stock || 10)}</td>
+                            <td className="p-2.5 text-[rgb(var(--text-muted))]">{String(p.material || "-")}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Modal Actions */}
+              <div className="flex items-center gap-3 pt-4 border-t border-[rgb(var(--border))] justify-end">
+                <button
+                  type="button"
+                  onClick={() => setIsBulkModalOpen(false)}
+                  className="px-5 py-3 border border-[rgb(var(--border))] text-[rgb(var(--foreground))] hover:bg-[rgba(var(--foreground),0.03)] uppercase font-semibold transition-colors"
+                >
+                  Cancel
+                </button>
+                <Button
+                  type="button"
+                  onClick={handleBulkSubmit}
+                  disabled={isBulkImporting || bulkParsedProducts.length === 0}
+                  variant="gold"
+                  className="rounded-none px-6 font-semibold uppercase flex items-center gap-2"
+                >
+                  <Upload size={14} />
+                  {isBulkImporting ? "Importing to Server..." : `Import ${bulkParsedProducts.length} Products to DB`}
+                </Button>
+              </div>
+
+            </div>
 
           </div>
         </div>
