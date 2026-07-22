@@ -50,7 +50,7 @@ function parseCsvToProducts(csvText: string): Record<string, unknown>[] {
     const row: string[] = [];
     let match;
     while ((match = regex.exec(lines[i])) !== null) {
-      let val = match[1] !== undefined ? match[1] : match[2];
+      const val = match[1] !== undefined ? match[1] : match[2];
       row.push(val ? val.trim() : "");
     }
 
