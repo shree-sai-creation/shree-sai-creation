@@ -128,39 +128,40 @@ export interface BackendProduct {
   installationType?: string;
 }
 
-export const mapBackendProductToFrontend = (p: any): Product => {
+export const mapBackendProductToFrontend = (p: Record<string, unknown>): Product => {
   // Direct SQLite / Frontend format support
   if (typeof p.price === "number" && Array.isArray(p.images) && (p.images.length === 0 || typeof p.images[0] === "string")) {
     return {
       id: String(p.id || p._id || ""),
-      name: p.name || "",
-      slug: p.slug || "",
-      description: p.description || "",
-      category: p.category || "Chandelier",
-      price: p.price || 0,
-      discount: p.discount || 0,
-      rating: p.rating || 5.0,
-      reviews: p.reviews || [],
-      dimensions: p.dimensions || "",
-      material: p.material || "",
-      finish: p.finish || "",
-      bulbs: p.bulbs || "",
+      name: (p.name as string) || "",
+      slug: (p.slug as string) || "",
+      description: (p.description as string) || "",
+      category: (p.category as string) || "Chandelier",
+      price: (p.price as number) || 0,
+      discount: (p.discount as number) || 0,
+      rating: (p.rating as number) || 5.0,
+      reviews: (p.reviews as Review[]) || [],
+      dimensions: (p.dimensions as string) || "",
+      material: (p.material as string) || "",
+      finish: (p.finish as string) || "",
+      bulbs: (p.bulbs as string) || "",
       stock: typeof p.stock === "number" ? p.stock : 10,
-      images: p.images || [],
-      features: p.features || [],
-      specifications: p.specifications || {},
-      relatedProducts: p.relatedProducts || p.related_products || []
+      images: (p.images as string[]) || [],
+      features: (p.features as string[]) || [],
+      specifications: (p.specifications as Record<string, string>) || {},
+      relatedProducts: (p.relatedProducts as string[]) || (p.related_products as string[]) || []
     };
   }
 
-  const defaultVariant = p.variants?.find((v: any) => v.isDefault) || p.variants?.[0];
+  const variants = p.variants as Record<string, unknown>[] | undefined;
+  const defaultVariant = variants?.find((v) => v.isDefault) || variants?.[0];
   
   // Calculate discount percentage based on compareAtPrice and price
-  const currentPrice = defaultVariant?.price || p.fromPrice || p.price || 0;
-  const originalPrice = defaultVariant?.compareAtPrice || currentPrice;
+  const currentPrice = (defaultVariant?.price as number) || (p.fromPrice as number) || (p.price as number) || 0;
+  const originalPrice = (defaultVariant?.compareAtPrice as number) || currentPrice;
   const discount = originalPrice > currentPrice 
     ? Math.round(((originalPrice - currentPrice) / originalPrice) * 100) 
-    : (p.discount || 0);
+    : ((p.discount as number) || 0);
 
   // Format dimensions
   let dimensions = "";
@@ -169,32 +170,38 @@ export const mapBackendProductToFrontend = (p: any): Product => {
   }
 
   // Specifications
-  const specifications: Record<string, string> = p.specifications || {};
-  if (p.voltage) specifications["Voltage"] = p.voltage;
+  const specifications: Record<string, string> = (p.specifications as Record<string, string>) || {};
+  if (p.voltage) specifications["Voltage"] = String(p.voltage);
   if (p.totalWattage) specifications["Total Wattage"] = `${p.totalWattage}W`;
   if (p.warrantyMonths) specifications["Warranty"] = `${p.warrantyMonths} Months`;
-  if (p.installationType) specifications["Installation"] = p.installationType;
+  if (p.installationType) specifications["Installation"] = String(p.installationType);
   if (p.numberOfLights) specifications["Number of Lights"] = String(p.numberOfLights);
 
+  const categoryIds = p.categoryIds as Array<{ name: string }> | undefined;
+  const materials = p.materials as string[] | undefined;
+  const finish = p.finish as string[] | undefined;
+  const images = p.images as Array<string | { url: string }> | undefined;
+  const relatedProductIds = p.relatedProductIds as Array<unknown> | undefined;
+
   return {
-    id: p._id ? p._id.toString() : String(p.id || ""),
-    name: p.name || "",
-    slug: p.slug || "",
-    description: p.description || "",
-    category: p.categoryIds?.[0]?.name || p.category || "Chandelier",
+    id: p._id ? String(p._id) : String(p.id || ""),
+    name: (p.name as string) || "",
+    slug: (p.slug as string) || "",
+    description: (p.description as string) || "",
+    category: categoryIds?.[0]?.name || (p.category as string) || "Chandelier",
     price: currentPrice,
     discount: discount,
-    rating: p.averageRating || p.rating || 5.0,
+    rating: (p.averageRating as number) || (p.rating as number) || 5.0,
     reviews: [],
     dimensions: dimensions,
-    material: Array.isArray(p.materials) ? p.materials.join(", ") : (p.material || ""),
-    finish: Array.isArray(p.finish) ? p.finish.join(", ") : (p.finish || ""),
-    bulbs: p.bulbs || (p.numberOfLights ? `${p.numberOfLights} x ${p.bulbType?.toUpperCase() || "LED"}` : "Integrated LED"),
-    stock: p.totalStock || p.stock || 0,
-    images: Array.isArray(p.images) ? p.images.map((img: any) => typeof img === "string" ? img : img.url) : [],
-    features: p.highlights || p.features || [],
+    material: Array.isArray(materials) ? materials.join(", ") : ((p.material as string) || ""),
+    finish: Array.isArray(finish) ? finish.join(", ") : ((p.finish as string) || ""),
+    bulbs: (p.bulbs as string) || (p.numberOfLights ? `${p.numberOfLights} x ${String(p.bulbType || "LED").toUpperCase()}` : "Integrated LED"),
+    stock: (p.totalStock as number) || (p.stock as number) || 0,
+    images: Array.isArray(images) ? images.map((img) => typeof img === "string" ? img : img.url) : [],
+    features: (p.highlights as string[]) || (p.features as string[]) || [],
     specifications: specifications,
-    relatedProducts: p.relatedProductIds?.map((rp: any) => typeof rp === "object" ? (rp._id ? rp._id.toString() : rp.toString()) : rp.toString()) || p.related_products || [],
-    defaultVariantId: defaultVariant?._id ? defaultVariant._id.toString() : ""
+    relatedProducts: relatedProductIds?.map((rp) => typeof rp === "object" && rp && "_id" in rp ? String((rp as { _id: unknown })._id) : String(rp)) || (p.related_products as string[]) || [],
+    defaultVariantId: defaultVariant?._id ? String(defaultVariant._id) : ""
   };
 };
