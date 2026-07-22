@@ -29,38 +29,83 @@ export default function CheckoutPage() {
     cardCVV: "",
   });
 
-  const handleOrderSubmit = (e: React.FormEvent) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const handleOrderSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const generatedOrderNum = `AUR-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-    setOrderNumber(generatedOrderNum);
+    setIsSubmitting(true);
+    setErrorMessage("");
 
-    const newOrder = {
-      id: generatedOrderNum,
-      firstName: formData.firstName,
-      lastName: formData.lastName,
-      email: formData.email,
-      address: formData.address,
-      city: formData.city,
-      state: formData.state,
-      zip: formData.zip,
-      phone: formData.phone,
-      items: cart.map(item => ({
-        id: item.product.id,
-        name: item.product.name,
-        price: item.product.price,
+    try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      const storedUser = localStorage.getItem("shree_sai_user");
+      if (storedUser) {
+        try {
+          const parsed = JSON.parse(storedUser);
+          if (parsed.token) {
+            headers["Authorization"] = `Bearer ${parsed.token}`;
+          }
+        } catch (e) {
+          console.error("Error parsing stored user token", e);
+        }
+      }
+      const shippingAddress = {
+        fullName: `${formData.firstName} ${formData.lastName}`,
+        phone: formData.phone,
+        email: formData.email,
+        line1: formData.address,
+        line2: "",
+        city: formData.city,
+        state: formData.state,
+        pincode: formData.zip,
+        country: "IN"
+      };
+
+      // Build cart items payload
+      const cartItems = cart.map((item) => ({
+        productId: item.product.id,
+        productName: item.product.name,
+        productImage: item.product.images?.[0] || "",
+        unitPrice: Math.round(item.product.price * (1 - item.product.discount / 100)),
         quantity: item.quantity,
-        image: item.product.images?.[0] || ""
-      })),
-      subtotal,
-      total,
-    };
+        selectedFinish: item.selectedFinish || "",
+      }));
 
-    // Simulate payment transaction delays
-    setTimeout(() => {
-      addOrder(newOrder);
+      const createRes = await fetch("/api/v1/checkout/create-order", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          shippingAddress,
+          email: formData.email,
+          phone: formData.phone,
+          paymentMethod,
+          cartItems,
+          subtotal,
+          discountAmount,
+          tax,
+          shipping,
+          grandTotal: total,
+        })
+      });
+
+      const createData = await createRes.json();
+      if (!createRes.ok) {
+        throw new Error(createData.message || "Failed to place order.");
+      }
+
+      setOrderNumber(createData.orderNumber);
       setIsCompleted(true);
       clearCart();
-    }, 1200);
+    } catch (err) {
+      console.error("Checkout order placement error:", err);
+      const message = err instanceof Error ? err.message : "Connection error. Please try again.";
+      setErrorMessage(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const estimatedArrival = "AUGUST 24 - SEPTEMBER 02, 2026";
@@ -410,8 +455,14 @@ export default function CheckoutPage() {
                 </div>
 
                 <div className="pt-2 space-y-4">
-                  <Button type="submit" variant="gold" className="w-full h-12">
-                    Submit Secure Order
+                  {errorMessage && (
+                    <div className="p-3 border border-red-500/20 bg-red-500/5 text-red-400 font-sans text-xs tracking-wider normal-case text-center">
+                      {errorMessage}
+                    </div>
+                  )}
+
+                  <Button type="submit" variant="gold" className="w-full h-12" disabled={isSubmitting}>
+                    {isSubmitting ? "PROCESSING TRANSACTION..." : "Submit Secure Order"}
                   </Button>
                   
                   <div className="flex items-center justify-center gap-1.5 text-[8px] text-white/30 tracking-widest uppercase">

@@ -4,11 +4,13 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle2, AlertCircle, Info, X } from "lucide-react";
 import { Product } from "@/data/products";
+import { mapBackendProductToFrontend } from "@/utils/db";
 
 export interface CartItem {
   product: Product;
   quantity: number;
   selectedFinish: string;
+  cartItemId?: string;
 }
 
 export interface ToastMessage {
@@ -31,7 +33,7 @@ interface CartContextType {
   toggleWishlist: (product: Product) => void;
   isInWishlist: (productId: string) => boolean;
   promoCode: string;
-  applyPromoCode: (code: string) => boolean;
+  applyPromoCode: (code: string) => Promise<boolean>;
   discountAmount: number;
   subtotal: number;
   tax: number;
@@ -39,6 +41,7 @@ interface CartContextType {
   total: number;
   theme: "dark" | "light";
   toggleTheme: () => void;
+  mergeCartAfterLogin: () => Promise<void>;
   
   // Custom global systems
   currency: "USD" | "EUR" | "GBP" | "INR";
@@ -116,54 +119,159 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [language, setLanguage] = useState<"EN" | "FR" | "ES">("EN");
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
+  const getHeaders = () => {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    const storedUser = localStorage.getItem("shree_sai_user");
+    if (storedUser) {
+      try {
+        const parsed = JSON.parse(storedUser);
+        if (parsed.token) {
+          headers["Authorization"] = `Bearer ${parsed.token}`;
+        }
+      } catch (e) {
+        console.error("Error parsing stored user token", e);
+      }
+    }
+    const guestToken = localStorage.getItem("shree_sai_guest_token");
+    if (guestToken) {
+      headers["x-guest-token"] = guestToken;
+    }
+    return headers;
+  };
+
+  const syncCartStateWithBackend = async () => {
+    try {
+      const headers = getHeaders();
+      const res = await fetch("/api/v1/cart", { headers });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.guestToken) {
+          localStorage.setItem("shree_sai_guest_token", data.guestToken);
+        }
+        const backendCart = data.cart;
+        if (backendCart && Array.isArray(backendCart.items)) {
+          const mappedItems: CartItem[] = backendCart.items.map((item: {
+            productId: string;
+            productName: string;
+            variantTitle?: string;
+            variantId: string;
+            unitPriceInPaise: number;
+            quantity: number;
+            imageUrl?: string;
+            _id: string;
+          }) => ({
+            product: {
+              id: item.productId,
+              name: item.productName,
+              slug: item.productName.toLowerCase().replace(/ /g, "-"),
+              description: "",
+              category: "Chandelier",
+              price: item.unitPriceInPaise / 100,
+              discount: 0,
+              rating: 5,
+              reviews: [],
+              dimensions: "",
+              material: "",
+              finish: item.variantTitle || "",
+              bulbs: "",
+              stock: 10,
+              images: [item.imageUrl || ""],
+              features: [],
+              specifications: {},
+              relatedProducts: [],
+              defaultVariantId: item.variantId
+            },
+            quantity: item.quantity,
+            selectedFinish: item.variantTitle || "Default",
+            cartItemId: item._id
+          }));
+          setCart(mappedItems);
+          
+          if (backendCart.couponCode) {
+            setPromoCode(backendCart.couponCode);
+            if (data.summary && data.summary.discountInPaise > 0) {
+              const subTotal = data.summary.subtotalInPaise || 1;
+              const percent = Math.round((data.summary.discountInPaise / subTotal) * 100);
+              setDiscountPercent(percent);
+            } else {
+              setDiscountPercent(0);
+            }
+          } else {
+            setPromoCode("");
+            setDiscountPercent(0);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Failed to sync cart with backend:", e);
+    }
+  };
+
+  const syncWishlistWithBackend = async () => {
+    const storedUser = localStorage.getItem("shree_sai_user");
+    if (!storedUser) return;
+    try {
+      const headers = getHeaders();
+      const res = await fetch("/api/v1/wishlist", { headers });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.products) {
+          setWishlist(data.products.map(mapBackendProductToFrontend));
+        }
+      }
+    } catch (e) {
+      console.error("Error syncing wishlist:", e);
+    }
+  };
+
+  const mergeCartAfterLogin = async () => {
+    const guestToken = localStorage.getItem("shree_sai_guest_token");
+    try {
+      if (guestToken) {
+        const headers = getHeaders();
+        const res = await fetch("/api/v1/cart/merge", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ guestToken })
+        });
+        if (res.ok) {
+          localStorage.removeItem("shree_sai_guest_token");
+        }
+      }
+    } catch (err) {
+      console.error("Failed to merge cart:", err);
+    } finally {
+      await syncCartStateWithBackend();
+      await syncWishlistWithBackend();
+    }
+  };
+
   // Load from local storage after mount to prevent SSR mismatch
   useEffect(() => {
-    const savedCart = localStorage.getItem("shree_sai_creation_cart");
-    const savedWishlist = localStorage.getItem("shree_sai_creation_wishlist");
-    const savedTheme = localStorage.getItem("shree_sai_creation_theme") as "dark" | "light" | null;
-    const savedLanguage = localStorage.getItem("shree_sai_creation_language") as "EN" | "FR" | "ES" | null;
+    const initCartAndWishlist = async () => {
+      const savedTheme = localStorage.getItem("shree_sai_creation_theme") as "dark" | "light" | null;
+      const savedLanguage = localStorage.getItem("shree_sai_creation_language") as "EN" | "FR" | "ES" | null;
 
-    if (savedCart) {
-      try {
-        setCart(JSON.parse(savedCart));
-      } catch (e) {
-        console.error("Error reading cart from localStorage", e);
+      if (savedTheme) {
+        setTheme(savedTheme);
+        const root = document.documentElement;
+        if (savedTheme === "light") {
+          root.classList.add("light");
+        } else {
+          root.classList.remove("light");
+        }
       }
-    }
-    if (savedWishlist) {
-      try {
-        setWishlist(JSON.parse(savedWishlist));
-      } catch (e) {
-        console.error("Error reading wishlist from localStorage", e);
-      }
-    }
-    if (savedTheme) {
-      setTheme(savedTheme);
-      const root = document.documentElement;
-      if (savedTheme === "light") {
-        root.classList.add("light");
-      } else {
-        root.classList.remove("light");
-      }
-    }
-    setCurrency("INR");
-    if (savedLanguage) setLanguage(savedLanguage as "EN" | "FR" | "ES");
-    
-    setMounted(true);
+      setCurrency("INR");
+      if (savedLanguage) setLanguage(savedLanguage as "EN" | "FR" | "ES");
+      
+      await syncCartStateWithBackend();
+      await syncWishlistWithBackend();
+      setMounted(true);
+    };
+    initCartAndWishlist();
   }, []);
-
-  // Save to local storage when state changes
-  useEffect(() => {
-    if (mounted) {
-      localStorage.setItem("shree_sai_creation_cart", JSON.stringify(cart));
-    }
-  }, [cart, mounted]);
-
-  useEffect(() => {
-    if (mounted) {
-      localStorage.setItem("shree_sai_creation_wishlist", JSON.stringify(wishlist));
-    }
-  }, [wishlist, mounted]);
 
   useEffect(() => {
     if (mounted) {
@@ -188,7 +296,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const id = Math.random().toString(36).substring(2, 9);
     setToasts((prev) => [...prev, { id, message, type }]);
     
-    // Auto-dismiss after 4 seconds
     setTimeout(() => {
       removeToast(id);
     }, 4000);
@@ -218,90 +325,175 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   };
 
-  const addToCart = (product: Product, quantity = 1, finish = "") => {
+  const addToCart = async (product: Product, quantity = 1, finish = "") => {
     const selectedFinish = finish || product.finish.split(",")[0]?.trim() || "Default";
-    setCart((prev) => {
-      const existingIdx = prev.findIndex(
-        (item) => item.product.id === product.id && item.selectedFinish === selectedFinish
-      );
-      if (existingIdx > -1) {
-        const newCart = [...prev];
-        newCart[existingIdx].quantity += quantity;
-        return newCart;
+    try {
+      const headers = getHeaders();
+      const payload = {
+        productId: product.id,
+        variantId: product.defaultVariantId || product.id,
+        quantity
+      };
+      const res = await fetch("/api/v1/cart/items", {
+        method: "POST",
+        headers,
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (res.ok) {
+        if (data.guestToken) {
+          localStorage.setItem("shree_sai_guest_token", data.guestToken);
+        }
+        await syncCartStateWithBackend();
+        addToast(`${product.name} added to your order bag.`, "success");
+      } else {
+        addToast(data.message || "Failed to add item to bag.", "error");
       }
-      return [...prev, { product, quantity, selectedFinish }];
-    });
+    } catch (err) {
+      console.error("Error adding item to cart:", err);
+      addToast("Error adding item to cart.", "error");
+    }
     setIsCartOpen(true);
-    addToast(`${product.name} added to your order bag.`, "success");
   };
 
-  const removeFromCart = (productId: string, finish: string) => {
-    setCart((prev) => prev.filter((item) => !(item.product.id === productId && item.selectedFinish === finish)));
-    addToast("Item removed from your order bag.", "info");
+  const removeFromCart = async (productId: string, finish: string) => {
+    const target = cart.find(
+      (item) => item.product.id === productId && item.selectedFinish === finish
+    );
+    const cartItemId = target?.cartItemId;
+    if (!cartItemId) return;
+    try {
+      const headers = getHeaders();
+      const res = await fetch(`/api/v1/cart/items/${cartItemId}`, {
+        method: "DELETE",
+        headers
+      });
+      if (res.ok) {
+        await syncCartStateWithBackend();
+        addToast("Item removed from your order bag.", "info");
+      }
+    } catch (err) {
+      console.error("Error removing item:", err);
+    }
   };
 
-  const updateCartQuantity = (productId: string, finish: string, quantity: number) => {
+  const updateCartQuantity = async (productId: string, finish: string, quantity: number) => {
     if (quantity <= 0) {
-      removeFromCart(productId, finish);
+      await removeFromCart(productId, finish);
       return;
     }
-    setCart((prev) =>
-      prev.map((item) =>
-        item.product.id === productId && item.selectedFinish === finish ? { ...item, quantity } : item
-      )
+    const target = cart.find(
+      (item) => item.product.id === productId && item.selectedFinish === finish
     );
-  };
-
-  const clearCart = () => {
-    setCart([]);
-    setPromoCode("");
-    setDiscountPercent(0);
-    addToast("Order bag cleared successfully.", "info");
-  };
-
-  const toggleWishlist = (product: Product) => {
-    setWishlist((prev) => {
-      const exists = prev.some((item) => item.id === product.id);
-      if (exists) {
-        addToast(`${product.name} removed from saved coordinates.`, "info");
-        return prev.filter((item) => item.id !== product.id);
+    const cartItemId = target?.cartItemId;
+    if (!cartItemId) return;
+    try {
+      const headers = getHeaders();
+      const res = await fetch(`/api/v1/cart/items/${cartItemId}`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ quantity })
+      });
+      if (res.ok) {
+        await syncCartStateWithBackend();
       }
-      addToast(`${product.name} saved to coordinates.`, "success");
-      return [...prev, product];
-    });
+    } catch (err) {
+      console.error("Error updating cart quantity:", err);
+    }
+  };
+
+  const clearCart = async () => {
+    try {
+      const headers = getHeaders();
+      const res = await fetch("/api/v1/cart", {
+        method: "DELETE",
+        headers
+      });
+      if (res.ok) {
+        setCart([]);
+        setPromoCode("");
+        setDiscountPercent(0);
+        addToast("Order bag cleared successfully.", "info");
+      }
+    } catch (err) {
+      console.error("Error clearing cart:", err);
+    }
+  };
+
+  const toggleWishlist = async (product: Product) => {
+    const storedUser = localStorage.getItem("shree_sai_user");
+    if (!storedUser) {
+      setWishlist((prev) => {
+        const exists = prev.some((item) => item.id === product.id);
+        if (exists) {
+          addToast(`${product.name} removed from saved coordinates.`, "info");
+          return prev.filter((item) => item.id !== product.id);
+        }
+        addToast(`${product.name} saved to coordinates.`, "success");
+        return [...prev, product];
+      });
+      return;
+    }
+    
+    const exists = wishlist.some((item) => item.id === product.id);
+    try {
+      const headers = getHeaders();
+      const method = exists ? "DELETE" : "POST";
+      const url = `/api/v1/wishlist/${product.id}`;
+      const res = await fetch(url, { method, headers });
+      const data = await res.json();
+      if (res.ok && data.products) {
+        setWishlist(data.products.map(mapBackendProductToFrontend));
+        addToast(
+          exists 
+            ? `${product.name} removed from saved coordinates.` 
+            : `${product.name} saved to coordinates.`, 
+          exists ? "info" : "success"
+        );
+      }
+    } catch (err) {
+      console.error("Error toggling wishlist:", err);
+    }
   };
 
   const isInWishlist = (productId: string) => {
     return wishlist.some((item) => item.id === productId);
   };
 
-  const applyPromoCode = (code: string) => {
+  const applyPromoCode = async (code: string) => {
     const formatted = code.toUpperCase().trim();
-    if (formatted === "SHREE SAI CREATION10") {
-      setPromoCode(formatted);
-      setDiscountPercent(10);
-      addToast("Promo code SHREE SAI CREATION10 applied (10% OFF).", "success");
-      return true;
-    } else if (formatted === "WELCOME15") {
-      setPromoCode(formatted);
-      setDiscountPercent(15);
-      addToast("Promo code WELCOME15 applied (15% OFF).", "success");
-      return true;
+    try {
+      const headers = getHeaders();
+      const res = await fetch("/api/v1/cart/coupon", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ code: formatted })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        await syncCartStateWithBackend();
+        addToast(`Promo code ${formatted} applied successfully!`, "success");
+        return true;
+      } else {
+        addToast(data.message || "Invalid promo code.", "error");
+        return false;
+      }
+    } catch (err) {
+      console.error("Error applying promo code:", err);
+      addToast("Error applying promo code.", "error");
+      return false;
     }
-    addToast("Invalid promo code key combination.", "error");
-    return false;
   };
 
   // Calculations
   const subtotal = cart.reduce((acc, item) => {
-    const price = item.product.price * (1 - item.product.discount / 100);
-    return acc + price * item.quantity;
+    return acc + item.product.price * item.quantity;
   }, 0);
 
   const discountAmount = (subtotal * discountPercent) / 100;
   const taxableAmount = subtotal - discountAmount;
-  const tax = taxableAmount * 0.08; // 8% sales tax
-  const shipping = subtotal > 5000 || subtotal === 0 ? 0 : 150; // free shipping over $5000
+  const tax = taxableAmount * 0.08;
+  const shipping = subtotal > 5000 || subtotal === 0 ? 0 : 150;
   const total = taxableAmount + tax + shipping;
 
   return (
@@ -328,6 +520,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         total,
         theme,
         toggleTheme,
+        mergeCartAfterLogin,
         
         // Custom global systems
         currency,

@@ -16,16 +16,39 @@ export default function ContactPage() {
   const [submitted, setSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [errorMsg, setErrorMsg] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.name && formData.email && formData.message) {
-      setIsLoading(true);
-      setTimeout(() => {
-        setIsLoading(false);
-        setSubmitted(true);
-        setFormData({ name: "", email: "", phone: "", inquiryType: "Residential", message: "" });
-        setTimeout(() => setSubmitted(false), 6000);
-      }, 1200);
+    if (!formData.name || !formData.email || !formData.message) return;
+    
+    setIsLoading(true);
+    setErrorMsg("");
+    
+    try {
+      const res = await fetch("/api/v1/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          subject: formData.inquiryType,
+          message: formData.message,
+        }),
+      });
+      
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to send message");
+      
+      setSubmitted(true);
+      setFormData({ name: "", email: "", phone: "", inquiryType: "Residential", message: "" });
+      setTimeout(() => setSubmitted(false), 6000);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to send. Please try again.";
+      setErrorMsg(msg);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -152,6 +175,9 @@ export default function ContactPage() {
                     </span>
                   )}
                 </Button>
+                {errorMsg && (
+                  <p className="text-red-400 text-[10px] tracking-widest text-center pt-1">{errorMsg}</p>
+                )}
               </form>
             )}
           </ScrollReveal>
@@ -161,7 +187,7 @@ export default function ContactPage() {
             {/* Contact Info Block */}
             <div className="bg-[#0d0d0d] border border-white/5 p-8 space-y-7">
               <h3 className="font-serif text-lg tracking-wide text-white border-b border-white/5 pb-4">
-                Mumbai Showroom
+                Melbourne Showroom
               </h3>
               
               <div className="space-y-5">
@@ -169,7 +195,7 @@ export default function ContactPage() {
                   <MapPin className="text-[#C9A96E] mt-0.5 shrink-0" size={16} />
                   <div>
                     <span className="text-[9px] tracking-[0.25em] uppercase text-white/50 block mb-1">Location</span>
-                    <p className="text-sm text-white/80 leading-relaxed">Shop No. 12, Lalbaug Market, Parel,<br />Mumbai — 400 012, Maharashtra, India</p>
+                    <p className="text-sm text-white/80 leading-relaxed">21 Breezy Cct, Werribee,<br />Melbourne, VIC 3030, Australia</p>
                   </div>
                 </div>
                 
@@ -187,8 +213,8 @@ export default function ContactPage() {
                   <Phone className="text-[#C9A96E] mt-0.5 shrink-0" size={16} />
                   <div>
                     <span className="text-[9px] tracking-[0.25em] uppercase text-white/50 block mb-1">Phone</span>
-                    <a href="tel:+919876543210" className="text-sm text-white/80 hover:text-[#C9A96E] transition-colors">
-                      +91 98765 43210
+                    <a href="tel:+61432784241" className="text-sm text-white/80 hover:text-[#C9A96E] transition-colors">
+                      +61 432 784 241
                     </a>
                   </div>
                 </div>
@@ -213,8 +239,8 @@ export default function ContactPage() {
                 <div className="inline-flex p-3.5 bg-black/80 border border-[#C9A96E] rounded-full text-[#C9A96E] animate-bounce">
                   <MapPin size={20} />
                 </div>
-                <p className="font-serif text-sm text-white tracking-widest">Shree Sai Creation Mumbai</p>
-                <p className="text-[9px] text-white/40 tracking-widest uppercase">Lalbaug, Mumbai · Maharashtra</p>
+                <p className="font-serif text-sm text-white tracking-widest">Shree Sai Creation Melbourne</p>
+                <p className="text-[9px] text-white/40 tracking-widest uppercase">21 Breezy Cct, Werribee · Melbourne, VIC</p>
               </div>
             </div>
 
@@ -223,7 +249,7 @@ export default function ContactPage() {
               <div className="w-2 h-2 rounded-full bg-[#C9A96E] mt-1.5 animate-pulse shrink-0" />
               <div>
                 <p className="text-[10px] tracking-[0.2em] uppercase text-[#C9A96E] font-medium mb-1">Typically replies within 2 hours</p>
-                <p className="text-xs text-white/40 leading-relaxed">Our design team is available Mon–Sat 10 AM – 7 PM IST. For urgent inquiries, call us directly.</p>
+                <p className="text-xs text-white/40 leading-relaxed">Our design team is available Mon–Sat 10 AM – 7 PM AEST. For urgent inquiries, call us directly.</p>
               </div>
             </div>
           </ScrollReveal>

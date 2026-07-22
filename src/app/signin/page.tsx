@@ -5,9 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Mail, Lock, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useCart } from "@/context/CartContext";
 
 export default function SignInPage() {
   const router = useRouter();
+  const { mergeCartAfterLogin } = useCart();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -52,6 +54,9 @@ export default function SignInPage() {
         : { email: data.user.email, name: data.user.name, role: "customer", token: data.token };
 
       localStorage.setItem("shree_sai_user", JSON.stringify(userObj));
+
+      // Asynchronously merge cart items from guest session
+      await mergeCartAfterLogin();
 
       setTimeout(() => {
         router.push("/");

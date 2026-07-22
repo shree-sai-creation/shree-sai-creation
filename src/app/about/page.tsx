@@ -44,10 +44,10 @@ export default function AboutPage() {
               A Response to Space and Form
             </h2>
             <p className="text-sm text-white/55 tracking-wide leading-[2] font-light">
-              Founded in Mumbai, Shree Sai Creation was born out of a desire to create lighting that transcends simple functionality to become architectural sculpture. We believe that light is the single most powerful element in interior design — having the ability to define volume, mood, and texture.
+              Founded in Melbourne, Shree Sai Creation was born out of a desire to create lighting that transcends simple functionality to become architectural sculpture. We believe that light is the single most powerful element in interior design — having the ability to define volume, mood, and texture.
             </p>
             <p className="text-sm text-white/55 tracking-wide leading-[2] font-light">
-              Over the years, we have collaborated with master craftsmen across India and sourced premium global materials to develop a library of proprietary textures, crystal formulas, and custom metal finishes that cannot be replicated.
+              Over the years, we have collaborated with master craftsmen and sourced premium global materials to develop a library of proprietary textures, crystal formulas, and custom metal finishes that cannot be replicated.
             </p>
           </ScrollReveal>
           <ScrollReveal variant="slideLeft" className="aspect-[4/3] bg-[#111] overflow-hidden border border-white/5 relative">
@@ -72,7 +72,7 @@ export default function AboutPage() {
               We source our minerals and crystals from the finest global suppliers. Our crystal drops are high-precision K9 optical grade glass, custom cut and polished to maximise refractive clarity — splitting warm LED light paths into breathtaking ambient rainbows.
             </p>
             <p className="text-sm text-white/55 tracking-wide leading-[2] font-light">
-              Each brass component is hand-finished by skilled artisans in our Mumbai workshop, ensuring that every fixture carries the same level of care, precision, and permanence you would expect from a world-class atelier.
+              Each brass component is hand-finished by skilled artisans in our Melbourne workshop, ensuring that every fixture carries the same level of care, precision, and permanence you would expect from a world-class atelier.
             </p>
           </ScrollReveal>
           <ScrollReveal variant="slideLeft" className="md:order-1 aspect-[4/3] bg-[#111] overflow-hidden border border-white/5 relative">

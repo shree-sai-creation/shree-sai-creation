@@ -21,13 +21,53 @@ import {
 import { useCart } from "@/context/CartContext";
 import { Button } from "@/components/ui/button";
 import { Product } from "@/data/products";
-import {
-  getStoredProducts,
-  saveStoredProducts,
-  getStoredOrders,
-  saveStoredOrders,
-  Order
-} from "@/utils/db";
+
+interface DbOrderItem {
+  productId: string;
+  productName: string;
+  unitPriceInPaise: number;
+  quantity: number;
+  imageUrl?: string;
+}
+
+interface DbOrder {
+  _id: string;
+  orderNumber: string;
+  createdAt?: string;
+  status: string;
+  items: DbOrderItem[];
+  subtotal: number;
+  grandTotal: number;
+  shippingAddress?: {
+    fullName?: string;
+    email?: string;
+    phone?: string;
+    line1?: string;
+    city?: string;
+    state?: string;
+    pincode?: string;
+  };
+  guestEmail?: string;
+}
+
+interface AdminDashboardOrder {
+  id: string;
+  dbId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+  phone: string;
+  items: { id: string; name: string; price: number; quantity: number; image: string }[];
+  subtotal: number;
+  total: number;
+  date: string;
+  status: "Pending" | "Crating" | "Shipped" | "Delivered";
+}
+
 
 export default function AdminPage() {
   const router = useRouter();
@@ -42,7 +82,7 @@ export default function AdminPage() {
 
   // Database states
   const [products, setProducts] = useState<Product[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<AdminDashboardOrder[]>([]);
 
   // Search & Filter within Products list
   const [productSearch, setProductSearch] = useState("");
@@ -71,6 +111,8 @@ export default function AdminPage() {
     features: ""
   });
 
+  const [isOrdersLoading, setIsOrdersLoading] = useState(false);
+
   // Verify authorization on mount
   useEffect(() => {
     const storedUser = localStorage.getItem("shree_sai_user");
@@ -87,9 +129,87 @@ export default function AdminPage() {
       setAdminUser(parsed);
       setIsAuth(true);
       
-      // Load db lists
-      setProducts(getStoredProducts());
-      setOrders(getStoredOrders());
+      // Load products from new SQLite API
+      fetch("/api/v1/products")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.products && Array.isArray(data.products)) {
+            // New API returns product fields directly matching frontend Product type
+            const mapped = data.products.map((p: Record<string, unknown>) => ({
+              id: String(p.id),
+              name: p.name as string,
+              slug: p.slug as string,
+              description: (p.description as string) || "",
+              category: (p.category as string) || "Chandelier",
+              price: p.price as number,
+              discount: p.discount as number,
+              rating: p.rating as number,
+              reviews: [],
+              dimensions: (p.dimensions as string) || "",
+              material: (p.material as string) || "",
+              finish: (p.finish as string) || "",
+              bulbs: (p.bulbs as string) || "",
+              stock: p.stock as number,
+              images: (p.images as string[]) || [],
+              features: (p.features as string[]) || [],
+              specifications: (p.specifications as Record<string, string>) || {},
+              relatedProducts: (p.related_products as string[]) || [],
+            }));
+            setProducts(mapped);
+          }
+        })
+        .catch((err) => console.error("Error loading products in admin page:", err));
+
+      setIsOrdersLoading(true);
+      fetch("/api/v1/admin/orders", {
+        headers: { "Authorization": `Bearer ${parsed.token}` }
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.orders && Array.isArray(data.orders)) {
+            const mapped = data.orders.map((o: Record<string, unknown>) => {
+              const fullName = (o.full_name as string) || "";
+              const nameParts = fullName.split(" ");
+              const firstName = nameParts[0] || "";
+              const lastName = nameParts.slice(1).join(" ") || "";
+
+              let displayStatus: "Pending" | "Crating" | "Shipped" | "Delivered" = "Pending";
+              const s = (o.status as string).toLowerCase();
+              if (s === "pending") displayStatus = "Pending";
+              else if (s === "crating") displayStatus = "Crating";
+              else if (s === "shipped") displayStatus = "Shipped";
+              else if (s === "delivered") displayStatus = "Delivered";
+
+              const items = (o.items as Record<string, unknown>[]) || [];
+              return {
+                id: o.order_number as string,
+                dbId: String(o.id),
+                firstName,
+                lastName,
+                email: (o.email as string) || "",
+                address: (o.address_line1 as string) || "",
+                city: (o.address_city as string) || "",
+                state: (o.address_state as string) || "",
+                zip: (o.address_pincode as string) || "",
+                phone: (o.phone as string) || "",
+                items: items.map((item) => ({
+                  id: String(item.product_id),
+                  name: item.product_name as string,
+                  price: item.unit_price as number,
+                  quantity: item.quantity as number,
+                  image: (item.product_image as string) || ""
+                })),
+                subtotal: o.subtotal as number,
+                total: o.grand_total as number,
+                date: new Date((o.created_at as string) || Date.now()).toLocaleDateString("en-IN"),
+                status: displayStatus
+              };
+            });
+            setOrders(mapped);
+          }
+        })
+        .catch((err) => console.error("Error loading admin orders:", err))
+        .finally(() => setIsOrdersLoading(false));
     } catch {
       router.push("/signin");
     }
@@ -183,17 +303,19 @@ export default function AdminPage() {
     setIsProductModalOpen(true);
   };
 
-  // Handle Product Add/Edit submission
-  const handleProductSubmit = (e: React.FormEvent) => {
+  // Handle Product Add/Edit submission (calls API)
+  const handleProductSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.slug) return;
 
-    // Build product objects
     const parsedImages = formData.images.split(",").map(i => i.trim()).filter(Boolean);
     const parsedFeatures = formData.features.split(",").map(f => f.trim()).filter(Boolean);
 
-    const targetProduct: Product = {
-      id: formData.id,
+    const storedUser = localStorage.getItem("shree_sai_user");
+    const parsed = storedUser ? JSON.parse(storedUser) : null;
+    const token = parsed?.token;
+
+    const payload = {
       name: formData.name,
       slug: formData.slug.toLowerCase().replace(/\s+/g, "-"),
       description: formData.description,
@@ -208,9 +330,7 @@ export default function AdminPage() {
       stock: Number(formData.stock),
       images: parsedImages.length ? parsedImages : ["https://images.unsplash.com/photo-1540932239986-30128078f3c5?w=800"],
       features: parsedFeatures,
-      reviews: editingProduct ? editingProduct.reviews : [],
-      relatedProducts: editingProduct ? editingProduct.relatedProducts : ["prod_1", "prod_2"],
-      specifications: editingProduct ? editingProduct.specifications : {
+      specifications: {
         "Dimensions": formData.dimensions,
         "Material": formData.material,
         "Finish Options": formData.finish,
@@ -218,34 +338,112 @@ export default function AdminPage() {
       }
     };
 
-    let updatedProducts: Product[] = [];
-    if (editingProduct) {
-      // Edit mode
-      updatedProducts = products.map(p => p.id === editingProduct.id ? targetProduct : p);
-    } else {
-      // Add mode
-      updatedProducts = [targetProduct, ...products];
-    }
+    try {
+      let res: Response;
+      if (editingProduct) {
+        res = await fetch(`/api/v1/products/${editingProduct.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+          body: JSON.stringify(payload)
+        });
+      } else {
+        res = await fetch("/api/v1/products", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+          body: JSON.stringify(payload)
+        });
+      }
 
-    setProducts(updatedProducts);
-    saveStoredProducts(updatedProducts);
-    setIsProductModalOpen(false);
+      const resData = await res.json();
+      if (!res.ok) throw new Error(resData.message || "Failed to save product");
+
+      const savedP = resData.product;
+      const frontendProduct: Product = {
+        id: String(savedP.id),
+        name: savedP.name,
+        slug: savedP.slug,
+        description: savedP.description || "",
+        category: savedP.category || "Chandelier",
+        price: savedP.price,
+        discount: savedP.discount,
+        rating: savedP.rating,
+        reviews: [],
+        dimensions: savedP.dimensions || "",
+        material: savedP.material || "",
+        finish: savedP.finish || "",
+        bulbs: savedP.bulbs || "",
+        stock: savedP.stock,
+        images: savedP.images || [],
+        features: savedP.features || [],
+        specifications: savedP.specifications || {},
+        relatedProducts: savedP.related_products || [],
+      };
+
+      if (editingProduct) {
+        setProducts(prev => prev.map(p => p.id === editingProduct.id ? frontendProduct : p));
+      } else {
+        setProducts(prev => [frontendProduct, ...prev]);
+      }
+      setIsProductModalOpen(false);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "An error occurred";
+      alert(msg);
+    }
   };
 
-  // Delete product handler
-  const handleProductDelete = (id: string) => {
-    if (window.confirm("Are you sure you want to delete this product?")) {
-      const updated = products.filter(p => p.id !== id);
-      setProducts(updated);
-      saveStoredProducts(updated);
+  // Delete product handler (calls API)
+  const handleProductDelete = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this product?")) return;
+
+    const storedUser = localStorage.getItem("shree_sai_user");
+    const parsed = storedUser ? JSON.parse(storedUser) : null;
+    const token = parsed?.token;
+
+    try {
+      const res = await fetch(`/api/v1/products/${id}`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || "Failed to delete product");
+      }
+      setProducts(prev => prev.filter(p => p.id !== id));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Delete failed";
+      alert(msg);
     }
   };
 
-  // Order status update handler
-  const handleOrderStatusChange = (orderId: string, status: Order["status"]) => {
-    const updated = orders.map(o => o.id === orderId ? { ...o, status } : o);
-    setOrders(updated);
-    saveStoredOrders(updated);
+  // Order status update handler (calls new SQLite API)
+  const handleOrderStatusChange = async (orderId: string, status: "Pending" | "Crating" | "Shipped" | "Delivered") => {
+    const target = orders.find(o => o.id === orderId);
+    if (!target || !target.dbId) return;
+
+    try {
+      const storedUser = localStorage.getItem("shree_sai_user");
+      const parsed = storedUser ? JSON.parse(storedUser) : null;
+      const token = parsed?.token;
+
+      const res = await fetch(`/api/v1/admin/orders/${target.dbId}/status`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ status })
+      });
+
+      if (res.ok) {
+        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
+      } else {
+        const errData = await res.json();
+        alert(errData.message || "Failed to update order status.");
+      }
+    } catch (e) {
+      console.error("Error updating order status:", e);
+      alert("Network error. Failed to update status.");
+    }
   };
 
   if (!isAuth) {

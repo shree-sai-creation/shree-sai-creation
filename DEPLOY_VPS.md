@@ -1,171 +1,222 @@
-# Deploying Shree Sai Creation on Hostinger VPS KVM 2
+# 🚀 Shree Sai Creation — VPS Deployment Guide (Hostinger)
 
-This guide outlines how to deploy your Next.js application on a Linux VPS (Ubuntu/Debian) using **Node.js**, **PM2** (Process Manager), and **Nginx** (Reverse Proxy with SSL).
-
----
-
-## Step 1: Connect to your VPS
-Open your terminal and SSH into your Hostinger VPS:
-```bash
-ssh root@YOUR_VPS_IP
-```
-*(Replace `YOUR_VPS_IP` with your actual Hostinger VPS IP address found in the hPanel).*
+## Prerequisites
+- Hostinger VPS (Ubuntu 22.04 recommended)
+- Domain pointed to VPS IP
+- SSH access to VPS
 
 ---
 
-## Step 2: Install Node.js & Git
-Run the following commands to update system packages and install Node.js (v20 LTS):
+## Step 1: VPS Initial Setup
+
 ```bash
-# Update packages
-sudo apt update && sudo apt upgrade -y
+# Connect to VPS
+ssh root@your-vps-ip
 
-# Install Git
-sudo apt install git curl build-essential -y
+# Update system
+apt update && apt upgrade -y
 
-# Install Node.js LTS (v20)
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt-get install -y nodejs
-```
+# Install Node.js 20 LTS
+curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+apt install -y nodejs
 
-Verify the installation:
-```bash
-node -v
-npm -v
-```
+# Install Nginx + Certbot (SSL)
+apt install -y nginx certbot python3-certbot-nginx
 
----
+# Install PM2 (process manager — keeps app running)
+npm install -g pm2
 
-## Step 3: Install PM2 (Process Manager)
-PM2 keeps your Next.js application running in the background and restarts it if the server reboots.
-```bash
-sudo npm install -y -g pm2
+# Create app user (security best practice)
+adduser --disabled-password shreesai
+su - shreesai
 ```
 
 ---
 
-## Step 4: Clone and Setup the Project
-Clone your repository onto the VPS (e.g., in the `/var/www/` directory):
-```bash
-cd /var/www
-git clone https://github.com/balaji3245/shree-sai-creation.git
-cd shree-sai-creation
-```
+## Step 2: Deploy Application
 
-Install dependencies and build the Next.js app:
 ```bash
+# As shreesai user — clone or upload your project
+cd /home/shreesai
+git clone https://github.com/yourusername/shree-sai-creation.git app
+cd app
+
+# Install dependencies
 npm install
+
+# Create production environment file
+cp .env.production.example .env.local
+nano .env.local
+```
+
+**Fill in `.env.local`:**
+```env
+# Generate strong JWT secret:
+# openssl rand -hex 64
+JWT_SECRET=<paste 64 char random string here>
+
+ADMIN_EMAIL=admin@shreesaicreation.com
+ADMIN_INITIAL_PASSWORD=<strong password>
+ALLOWED_ORIGIN=https://shreesaicreation.com
+NODE_ENV=production
+```
+
+```bash
+# Build the app
 npm run build
-```
 
----
+# Create data and logs directories
+mkdir -p data logs
 
-## Step 5: Start the App with PM2
-Launch the Next.js production server using PM2:
-```bash
-pm2 start npm --name "shree-sai-creation" -- start
-```
-
-Ensure PM2 starts automatically on server reboot:
-```bash
-pm2 startup
-# Copy and run the command printed in the terminal output of the above command, then run:
+# Start with PM2
+pm2 start npm --name "shreesai" -- start
 pm2 save
-```
-
-To check application status:
-```bash
-pm2 status
+pm2 startup  # Follow the printed command to auto-start on reboot
 ```
 
 ---
 
-## Step 6: Configure Nginx as a Reverse Proxy
-Nginx will route incoming requests on port 80/443 (HTTP/HTTPS) to Next.js running internally on port 3000.
-
-1. Install Nginx:
-   ```bash
-   sudo apt install nginx -y
-   ```
-
-2. Create a configuration file for your domain:
-   ```bash
-   sudo nano /etc/nginx/sites-available/shreesaicreation.com
-   ```
-
-3. Paste the following configuration (replace `shreesaicreation.com` with your actual domain):
-   ```nginx
-   server {
-       listen 80;
-       server_name shreesaicreation.com www.shreesaicreation.com;
-
-       location / {
-           proxy_pass http://localhost:3000;
-           proxy_http_version 1.1;
-           proxy_set_header Upgrade $http_upgrade;
-           proxy_set_header Connection 'upgrade';
-           proxy_set_header Host $host;
-           proxy_cache_bypass $http_upgrade;
-       }
-   }
-   ```
-
-4. Enable the site and restart Nginx:
-   ```bash
-   sudo ln -s /etc/nginx/sites-available/shreesaicreation.com /etc/nginx/sites-enabled/
-   sudo nginx -t
-   sudo systemctl restart nginx
-   ```
-
----
-
-## Step 7: Secure the Site with SSL (HTTPS)
-Use Let's Encrypt and Certbot to install a free SSL certificate:
+## Step 3: Nginx Configuration
 
 ```bash
-sudo apt install certbot python3-certbot-nginx -y
-sudo certbot --nginx -d shreesaicreation.com -d www.shreesaicreation.com
+# Exit shreesai user, back to root
+exit
+
+# Create Nginx config
+nano /etc/nginx/sites-available/shreesai
 ```
-*Follow the on-screen prompts to configure SSL redirection.*
+
+Paste this config:
+```nginx
+server {
+    listen 80;
+    server_name shreesaicreation.com www.shreesaicreation.com;
+
+    # Gzip compression
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml image/svg+xml;
+    gzip_min_length 1000;
+
+    # Security headers (extra layer on top of Next.js headers)
+    add_header X-Frame-Options "DENY" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+    # Proxy to Next.js
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+        proxy_read_timeout 60s;
+    }
+
+    # Cache static assets
+    location /_next/static/ {
+        proxy_pass http://localhost:3000;
+        proxy_set_header Host $host;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # Favicon and robots
+    location = /favicon.ico {
+        proxy_pass http://localhost:3000;
+        expires 1d;
+    }
+}
+```
+
+```bash
+# Enable site
+ln -s /etc/nginx/sites-available/shreesai /etc/nginx/sites-enabled/
+nginx -t  # Test config
+systemctl reload nginx
+```
 
 ---
 
-## Step 8: Updating code in the future
-Whenever you push updates to GitHub, run this script on your VPS to deploy them:
+## Step 4: SSL Certificate (HTTPS — MUST DO)
+
 ```bash
-cd /var/www/shree-sai-creation
+# Get free SSL from Let's Encrypt
+certbot --nginx -d shreesaicreation.com -d www.shreesaicreation.com
+
+# Auto-renewal test
+certbot renew --dry-run
+```
+
+Certbot automatically updates your Nginx config with HTTPS!
+
+---
+
+## Step 5: Change Admin Password
+
+After first deploy, immediately change default admin password:
+
+```bash
+su - shreesai
+cd app
+node -e "
+const bcrypt = require('bcryptjs');
+const Database = require('better-sqlite3');
+const db = new Database('data/shreesai.db');
+const hash = bcrypt.hashSync('YOUR_STRONG_NEW_PASSWORD', 12);
+db.prepare('UPDATE admins SET password_hash = ? WHERE email = ?').run(hash, 'admin@shreesaicreation.com');
+console.log('Admin password updated!');
+db.close();
+"
+```
+
+---
+
+## Step 6: Firewall Setup
+
+```bash
+# Allow only necessary ports
+ufw allow 22/tcp    # SSH
+ufw allow 80/tcp    # HTTP (Nginx)
+ufw allow 443/tcp   # HTTPS (Nginx)
+ufw deny 3000       # Block direct Next.js access (Nginx only)
+ufw enable
+```
+
+---
+
+## Maintenance Commands
+
+```bash
+# View app logs
+pm2 logs shreesai
+
+# View access logs
+tail -f /home/shreesai/app/logs/access-$(date +%Y-%m-%d).log
+
+# Restart app after code update
+cd /home/shreesai/app
 git pull
 npm install
 npm run build
-pm2 restart shree-sai-creation
+pm2 restart shreesai
+
+# View Nginx logs
+tail -f /var/log/nginx/access.log
+tail -f /var/log/nginx/error.log
 ```
 
 ---
 
-## Step 9: Redirecting Multiple Domains to Main Domain (.com) [Option 1]
-If you have multiple domains (e.g. `.com.au`, `.org`, `.online`) and want all of them to redirect to the primary `https://shreesaicreation.com` domain for better SEO:
+## Security Checklist Before Launch
 
-1. **DNS Setup**: Point all domains (A records) to your VPS IP (`145.79.11.35`).
-2. **SSL Setup for all domains**: Run this command on your VPS (select `E` or `2` to expand the existing certificate):
-   ```bash
-   certbot --nginx -d shreesaicreation.com -d www.shreesaicreation.com -d shreesaicreation.com.au -d www.shreesaicreation.com.au -d shreesaicreation.org -d www.shreesaicreation.org -d shreesaicreation.online -d www.shreesaicreation.online
-   ```
-3. **Setup Nginx Redirect**: Open Nginx config file:
-   ```bash
-   nano /etc/nginx/sites-available/default
-   ```
-   Modify or add the server blocks for the secondary domains (`.com.au`, `.org`, `.online`) so that they return a 301 redirect. 
-   
-   For example, replace their `location /` blocks with:
-   ```nginx
-   location / {
-       return 301 https://shreesaicreation.com$request_uri;
-   }
-   ```
-   This ensures that all traffic, queries, and page paths automatically forward to the exact same page on the primary `.com` website securely.
-
-4. **Restart Nginx**:
-   ```bash
-   nginx -t
-   systemctl restart nginx
-   ```
-
+- [ ] JWT_SECRET changed to 64-char random string
+- [ ] Admin password changed from default
+- [ ] ALLOWED_ORIGIN set to actual domain
+- [ ] SSL certificate installed (HTTPS green padlock)
+- [ ] Firewall enabled (port 3000 blocked)
+- [ ] NODE_ENV=production in .env.local
+- [ ] PM2 auto-startup configured

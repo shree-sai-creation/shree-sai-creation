@@ -39,3 +39,14 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# SQLite database (local data, do not commit)
+/data/*.db
+/data/*.db-shm
+/data/*.db-wal
+
+# Application logs (do not commit)
+/logs/
+
+# Production env (has secrets, do not commit)
+.env.production

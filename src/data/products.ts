@@ -25,6 +25,7 @@ export interface Product {
   features: string[];
   specifications: Record<string, string>;
   relatedProducts: string[]; // ids of related products
+  defaultVariantId?: string;
 }
 
 export const PRODUCTS: Product[] = [

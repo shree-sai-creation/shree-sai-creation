@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCart } from "@/context/CartContext";
 import { 
@@ -45,18 +45,66 @@ const MOCK_ORDERS = [
   }
 ];
 
+interface DbOrderItem {
+  // New SQLite schema fields
+  product_id?: string;
+  product_name?: string;
+  product_image?: string;
+  unit_price?: number;
+  quantity: number;
+  selected_finish?: string;
+  // Old schema compatibility
+  productId?: string;
+  productName?: string;
+  imageUrl?: string;
+  unitPriceInPaise?: number;
+}
+
+interface DbOrder {
+  // New SQLite schema fields
+  id?: number;
+  order_number?: string;
+  created_at?: string;
+  status: string;
+  items: DbOrderItem[];
+  subtotal?: number;
+  grand_total?: number;
+  // Old schema compatibility
+  _id?: string;
+  orderNumber?: string;
+  createdAt?: string;
+  grandTotal?: number;
+}
+
+interface DashboardOrderItem {
+  name: string;
+  qty: number;
+  price: number;
+}
+
+interface DashboardOrder {
+  id: string;
+  date: string;
+  total: number;
+  status: string;
+  items: DashboardOrderItem[];
+  steps: { label: string; date: string; done: boolean; current: boolean }[];
+}
+
 function AccountContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { theme, formatPrice } = useCart();
   
-  const [user, setUser] = useState<{ email: string; name: string; role: string } | null>(null);
+  const [user, setUser] = useState<{ email: string; name: string; role: string; token: string } | null>(null);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [loading, setLoading] = useState(true);
+  const [orders, setOrders] = useState<DbOrder[]>([]);
+  const [isOrdersLoading, setIsOrdersLoading] = useState(false);
   
   // Track Order state
   const [trackOrderId, setTrackOrderId] = useState("");
-  const [trackingResult, setTrackingResult] = useState<typeof MOCK_ORDERS[0] | null>(null);
+  const [trackingResult, setTrackingResult] = useState<DashboardOrder | null>(null);
   const [trackingError, setTrackingError] = useState("");
 
   // Address form state
@@ -92,6 +140,26 @@ function AccountContent() {
       setFullName(parsed.name || "");
       setEmailAddress(parsed.email || "");
       setLoading(false);
+
+      const fetchUserOrders = async () => {
+        try {
+          setIsOrdersLoading(true);
+          const res = await fetch("/api/v1/orders", {
+            headers: {
+              "Authorization": `Bearer ${parsed.token}`
+            }
+          });
+          const data = await res.json();
+          if (res.ok && data.orders) {
+            setOrders(data.orders);
+          }
+        } catch (e) {
+          console.error("Error loading user orders:", e);
+        } finally {
+          setIsOrdersLoading(false);
+        }
+      };
+      fetchUserOrders();
     }
   }, [router]);
 
@@ -101,6 +169,69 @@ function AccountContent() {
       setActiveTab(tabParam);
     }
   }, [searchParams]);
+
+  const ordersList = useMemo(() => {
+    return orders.map((o: DbOrder) => {
+      const dateStr = new Date((o.created_at || o.createdAt) || Date.now()).toLocaleDateString("en-IN", {
+        year: "numeric",
+        month: "long",
+        day: "numeric"
+      });
+
+      const status = (o.status || "").toLowerCase();
+      let displayStatus = "Order Placed";
+      if (status === "pending") displayStatus = "Order Placed";
+      else if (status === "crating") displayStatus = "In Production";
+      else if (status === "shipped") displayStatus = "Shipped";
+      else if (status === "delivered") displayStatus = "Delivered";
+      else if (status === "cancelled") displayStatus = "Cancelled";
+
+      const steps = [
+        { 
+          label: "Order Placed", 
+          date: dateStr, 
+          done: true, 
+          current: status === "pending"
+        },
+        { 
+          label: "In Production", 
+          date: "Crating & Handcrafting", 
+          done: ["crating", "shipped", "delivered"].includes(status), 
+          current: status === "crating"
+        },
+        { 
+          label: "Shipped", 
+          date: "Carrier Air-Freight", 
+          done: ["shipped", "delivered"].includes(status), 
+          current: status === "shipped"
+        },
+        { 
+          label: "Delivered", 
+          date: status === "delivered" ? "Completed" : "Est. 6-8 weeks", 
+          done: status === "delivered", 
+          current: status === "delivered"
+        }
+      ];
+
+      // Support both old (orderNumber/grandTotal) and new (order_number/grand_total) schema
+      const orderNum = (o.order_number || o.orderNumber) || "";
+      const grandTotal = (o.grand_total !== undefined ? o.grand_total : o.grandTotal) || 0;
+      const orderItems = (o.items || []).map((item: DbOrderItem) => ({
+        name: (item.product_name || item.productName) || "",
+        qty: item.quantity,
+        price: item.unit_price !== undefined ? item.unit_price : (item.unitPriceInPaise || 0) / 100
+      }));
+
+      return {
+        id: orderNum,
+        date: dateStr,
+        total: grandTotal,
+        status: displayStatus,
+        items: orderItems,
+        steps
+      };
+    });
+  }, [orders]);
 
   const handleLogout = () => {
     localStorage.removeItem("shree_sai_user");
@@ -140,11 +271,11 @@ function AccountContent() {
     const cleanId = trackOrderId.trim().toUpperCase();
     if (!cleanId) return;
 
-    const found = MOCK_ORDERS.find(o => o.id === cleanId);
+    const found = ordersList.find(o => o.id === cleanId);
     if (found) {
       setTrackingResult(found);
     } else {
-      setTrackingError("No order found with ID '" + cleanId + "'. Try using 'SSC-2026-9812'");
+      setTrackingError("No order found with ID '" + cleanId + "'.");
     }
   };
 
@@ -359,52 +490,62 @@ function AccountContent() {
                 {/* Orders List */}
                 <div className="space-y-4">
                   <h3 className="font-serif text-lg font-semibold">Past Custom Invoices</h3>
-                  {MOCK_ORDERS.map(order => (
-                    <div 
-                      key={order.id}
-                      className={`p-5 border rounded-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-5 transition-all ${
-                        theme === "dark" ? "bg-[#0f0f0f] border-white/5 hover:border-white/10" : "bg-white border-black/5 hover:shadow-md"
-                      }`}
-                    >
-                      <div>
-                        <div className="flex items-center gap-3">
-                          <span className="font-serif font-bold text-sm">{order.id}</span>
-                          <span className={`text-[7.5px] font-bold tracking-widest uppercase px-2 py-0.5 rounded-sm ${
-                            order.status === "Delivered" 
-                              ? "bg-green-500/10 border border-green-500/20 text-green-400" 
-                              : "bg-[#C9A96E]/15 border border-[#C9A96E]/20 text-[#C9A96E]"
-                          }`}>
-                            {order.status}
-                          </span>
-                        </div>
-                        <p className={`text-[10px] mt-1.5 ${theme === "dark" ? "text-white/45" : "text-black/45"}`}>
-                          Placed on: {order.date} • {order.items[0].name}
-                        </p>
-                      </div>
-
-                      <div className="flex items-center gap-6 justify-between w-full md:w-auto">
-                        <div className="text-left md:text-right">
-                          <p className={`text-[9px] ${theme === "dark" ? "text-white/30" : "text-black/35"}`}>Total Price</p>
-                          <span className="font-semibold text-sm text-[#C9A96E]">{formatPrice(order.total)}</span>
-                        </div>
-                        <button
-                          onClick={() => {
-                            setTrackOrderId(order.id);
-                            setTrackingResult(order);
-                            setTrackingError("");
-                            window.scrollTo({ top: 0, behavior: "smooth" });
-                          }}
-                          className={`flex items-center gap-2 text-[8px] font-bold tracking-widest uppercase border px-4 py-2 transition-all ${
-                            theme === "dark" 
-                              ? "border-white/10 hover:border-[#C9A96E] hover:text-[#C9A96E]" 
-                              : "border-black/10 hover:border-[#C9A96E] hover:text-[#C9A96E]"
-                          }`}
-                        >
-                          <Eye size={10} /> Track
-                        </button>
-                      </div>
+                  {isOrdersLoading ? (
+                    <div className="py-10 text-center text-xs uppercase tracking-widest text-white/30 border border-white/5 bg-[#0a0a0a]">
+                      Loading orders history...
                     </div>
-                  ))}
+                  ) : ordersList.length === 0 ? (
+                    <div className="py-10 text-center border border-dashed border-white/10 p-6 text-xs uppercase tracking-widest text-white/30 bg-[#0a0a0a]">
+                      No custom invoices placed yet
+                    </div>
+                  ) : (
+                    ordersList.map(order => (
+                      <div 
+                        key={order.id}
+                        className={`p-5 border rounded-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-5 transition-all ${
+                          theme === "dark" ? "bg-[#0f0f0f] border-white/5 hover:border-white/10" : "bg-white border-black/5 hover:shadow-md"
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center gap-3">
+                            <span className="font-serif font-bold text-sm">{order.id}</span>
+                            <span className={`text-[7.5px] font-bold tracking-widest uppercase px-2 py-0.5 rounded-sm ${
+                              order.status === "Delivered" || order.status === "Completed"
+                                ? "bg-green-500/10 border border-green-500/20 text-green-400" 
+                                : "bg-[#C9A96E]/15 border border-[#C9A96E]/20 text-[#C9A96E]"
+                            }`}>
+                              {order.status}
+                            </span>
+                          </div>
+                          <p className={`text-[10px] mt-1.5 ${theme === "dark" ? "text-white/45" : "text-black/45"}`}>
+                            Placed on: {order.date} • {order.items[0]?.name || "Lighting Fixture"}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-6 justify-between w-full md:w-auto">
+                          <div className="text-left md:text-right">
+                            <p className={`text-[9px] ${theme === "dark" ? "text-white/30" : "text-black/35"}`}>Total Price</p>
+                            <span className="font-semibold text-sm text-[#C9A96E]">{formatPrice(order.total)}</span>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setTrackOrderId(order.id);
+                              setTrackingResult(order);
+                              setTrackingError("");
+                              window.scrollTo({ top: 0, behavior: "smooth" });
+                            }}
+                            className={`flex items-center gap-2 text-[8px] font-bold tracking-widest uppercase border px-4 py-2 transition-all ${
+                              theme === "dark" 
+                                ? "border-white/10 hover:border-[#C9A96E] hover:text-[#C9A96E]" 
+                                : "border-black/10 hover:border-[#C9A96E] hover:text-[#C9A96E]"
+                            }`}
+                          >
+                            <Eye size={10} /> Track
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             )}

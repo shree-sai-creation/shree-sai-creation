@@ -87,6 +87,7 @@ export const addOrder = (order: Omit<Order, "status" | "date">): void => {
 };
 
 export interface BackendVariant {
+  _id?: string;
   title?: string;
   sku: string;
   price?: number;
@@ -169,6 +170,7 @@ export const mapBackendProductToFrontend = (p: BackendProduct): Product => {
     images: p.images?.map((img) => img.url) || [],
     features: p.highlights || [],
     specifications: specifications,
-    relatedProducts: p.relatedProductIds?.map((rp) => typeof rp === "object" ? (rp._id ? rp._id.toString() : rp.toString()) : rp.toString()) || []
+    relatedProducts: p.relatedProductIds?.map((rp) => typeof rp === "object" ? (rp._id ? rp._id.toString() : rp.toString()) : rp.toString()) || [],
+    defaultVariantId: defaultVariant?._id ? defaultVariant._id.toString() : ""
   };
 };
