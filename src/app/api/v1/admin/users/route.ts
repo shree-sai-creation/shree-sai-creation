@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import getDb from "@/lib/db";
+import prisma from "@/lib/db";
 import { requireAdmin, logApiResponse } from "@/lib/middleware";
+import { Role } from "@prisma/client";
 
 // GET /api/v1/admin/users — list all registered users
 export async function GET(req: NextRequest) {
@@ -9,21 +10,27 @@ export async function GET(req: NextRequest) {
   if ("error" in authResult) return authResult.error;
 
   try {
-    const db = getDb();
-    const users = db
-      .prepare(
-        `SELECT id, name, email, role, created_at FROM users ORDER BY created_at DESC`
-      )
-      .all() as {
-        id: number;
-        name: string;
-        email: string;
-        role: string;
-        created_at: string;
-      }[];
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const formatted = users.map((u) => ({
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      role: u.role.toLowerCase(),
+      created_at: u.createdAt.toISOString(),
+    }));
 
     logApiResponse(req, 200, startTime);
-    return NextResponse.json({ users });
+    return NextResponse.json({ users: formatted });
   } catch (err) {
     const { logError } = await import("@/lib/logger");
     logError("admin/users GET", err);
@@ -32,7 +39,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// DELETE /api/v1/admin/users?id=123 — delete a user
+// DELETE /api/v1/admin/users?id=... — delete a user
 export async function DELETE(req: NextRequest) {
   const startTime = Date.now();
   const authResult = requireAdmin(req);
@@ -42,24 +49,21 @@ export async function DELETE(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
 
-    if (!id || isNaN(Number(id))) {
+    if (!id) {
       return NextResponse.json({ message: "Valid user ID required" }, { status: 400 });
     }
 
-    const db = getDb();
-    const user = db.prepare("SELECT id, role FROM users WHERE id = ?").get(Number(id)) as
-      | { id: number; role: string }
-      | undefined;
+    const user = await prisma.user.findUnique({ where: { id } });
 
     if (!user) {
       return NextResponse.json({ message: "User not found" }, { status: 404 });
     }
 
-    if (user.role === "admin") {
+    if (user.role === Role.ADMIN || user.role === Role.SUPER_ADMIN) {
       return NextResponse.json({ message: "Cannot delete admin user" }, { status: 403 });
     }
 
-    db.prepare("DELETE FROM users WHERE id = ?").run(Number(id));
+    await prisma.user.delete({ where: { id } });
 
     logApiResponse(req, 200, startTime);
     return NextResponse.json({ message: "User deleted successfully" });
@@ -85,13 +89,17 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ message: "Valid id and role required" }, { status: 400 });
     }
 
-    const db = getDb();
-    const user = db.prepare("SELECT id FROM users WHERE id = ?").get(Number(id));
+    const user = await prisma.user.findUnique({ where: { id } });
     if (!user) {
       return NextResponse.json({ message: "User not found" }, { status: 404 });
     }
 
-    db.prepare("UPDATE users SET role = ? WHERE id = ?").run(role, Number(id));
+    const targetRole = role === "admin" ? Role.ADMIN : Role.CUSTOMER;
+
+    await prisma.user.update({
+      where: { id },
+      data: { role: targetRole },
+    });
 
     logApiResponse(req, 200, startTime);
     return NextResponse.json({ message: "User role updated" });

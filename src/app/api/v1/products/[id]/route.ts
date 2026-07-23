@@ -1,19 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import getDb from "@/lib/db";
+import prisma from "@/lib/db";
 import { requireAdmin, withSecurity, logApiResponse } from "@/lib/middleware";
 import { GENERAL_RATE_LIMIT } from "@/lib/rateLimit";
 import { sanitizeObject } from "@/lib/sanitize";
-
-function parseProduct(row: Record<string, unknown>) {
-  return {
-    ...row,
-    images: JSON.parse((row.images as string) || "[]"),
-    features: JSON.parse((row.features as string) || "[]"),
-    specifications: JSON.parse((row.specifications as string) || "{}"),
-    related_products: JSON.parse((row.related_products as string) || "[]"),
-  };
-}
 
 const UpdateProductSchema = z.object({
   name: z.string().min(1).max(200).optional(),
@@ -30,7 +20,7 @@ const UpdateProductSchema = z.object({
   bulbs: z.string().max(200).optional(),
   stock: z.number().min(0).optional(),
   images: z.array(z.string()).optional(),
-  features: z.array(z.string().max(300)).optional(),
+  features: z.array(z.string()).optional(),
   specifications: z.record(z.string(), z.string()).optional(),
   related_products: z.array(z.string()).optional(),
   is_active: z.number().min(0).max(1).optional(),
@@ -47,23 +37,52 @@ export async function GET(
 
   try {
     const { id } = await params;
-    if (!/^\d+$/.test(id)) {
-      logApiResponse(req, 400, startTime);
-      return NextResponse.json({ message: "Invalid product ID" }, { status: 400 });
-    }
 
-    const db = getDb();
-    const product = db
-      .prepare("SELECT * FROM products WHERE id = ?")
-      .get(id) as Record<string, unknown> | undefined;
+    const product = await prisma.product.findUnique({
+      where: { id },
+      include: {
+        category: true,
+        specifications: true,
+        variants: { include: { inventory: true } },
+        images: { include: { media: true } },
+      },
+    });
 
     if (!product) {
       logApiResponse(req, 404, startTime);
       return NextResponse.json({ message: "Product not found" }, { status: 404 });
     }
 
+    const specsObj: Record<string, string> = {};
+    product.specifications.forEach((s) => {
+      specsObj[s.key] = s.value;
+    });
+
+    const defaultVariant = product.variants.find((v) => v.isDefault) || product.variants[0];
+
+    const formatted = {
+      id: product.id,
+      name: product.name,
+      slug: product.slug,
+      description: product.description,
+      category: product.category?.name || "Chandelier",
+      price: Math.round(product.basePrice / 100),
+      compare_at_price: Math.round((product.compareAtPrice || 0) / 100),
+      discount: product.discount,
+      rating: product.rating,
+      dimensions: specsObj["Dimensions"] || "",
+      material: specsObj["Material"] || "",
+      finish: specsObj["Finish"] || "",
+      bulbs: specsObj["Bulbs"] || "",
+      stock: defaultVariant?.inventory?.quantity || 10,
+      images: product.images.map((img) => img.media?.url || "").filter(Boolean),
+      features: [],
+      specifications: specsObj,
+      related_products: [],
+    };
+
     logApiResponse(req, 200, startTime);
-    return NextResponse.json({ product: parseProduct(product) });
+    return NextResponse.json({ product: formatted });
   } catch (err) {
     const { logError } = await import("@/lib/logger");
     logError("products/[id]/GET", err);
@@ -86,11 +105,6 @@ export async function PUT(
 
   try {
     const { id } = await params;
-    if (!/^\d+$/.test(id)) {
-      logApiResponse(req, 400, startTime);
-      return NextResponse.json({ message: "Invalid product ID" }, { status: 400 });
-    }
-
     const body = await req.json();
     const sanitized = sanitizeObject(body);
     const parsed = UpdateProductSchema.safeParse(sanitized);
@@ -101,49 +115,30 @@ export async function PUT(
     }
 
     const data = parsed.data;
-    const db = getDb();
 
-    const existing = db.prepare("SELECT * FROM products WHERE id = ?").get(id) as Record<string, unknown> | undefined;
+    const existing = await prisma.product.findUnique({ where: { id } });
     if (!existing) {
       logApiResponse(req, 404, startTime);
       return NextResponse.json({ message: "Product not found" }, { status: 404 });
     }
 
-    const updates: string[] = [];
-    const values: unknown[] = [];
+    const updateData: Record<string, unknown> = {};
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.slug !== undefined) updateData.slug = data.slug;
+    if (data.description !== undefined) updateData.description = data.description;
+    if (data.price !== undefined) updateData.basePrice = Math.round(data.price * 100);
+    if (data.compare_at_price !== undefined) updateData.compareAtPrice = Math.round(data.compare_at_price * 100);
+    if (data.discount !== undefined) updateData.discount = data.discount;
+    if (data.rating !== undefined) updateData.rating = data.rating;
+    if (data.is_active !== undefined) updateData.isActive = Boolean(data.is_active);
 
-    if (data.name !== undefined) { updates.push("name = ?"); values.push(data.name); }
-    if (data.slug !== undefined) { updates.push("slug = ?"); values.push(data.slug); }
-    if (data.description !== undefined) { updates.push("description = ?"); values.push(data.description); }
-    if (data.category !== undefined) { updates.push("category = ?"); values.push(data.category); }
-    if (data.price !== undefined) { updates.push("price = ?"); values.push(data.price); }
-    if (data.compare_at_price !== undefined) { updates.push("compare_at_price = ?"); values.push(data.compare_at_price); }
-    if (data.discount !== undefined) { updates.push("discount = ?"); values.push(data.discount); }
-    if (data.rating !== undefined) { updates.push("rating = ?"); values.push(data.rating); }
-    if (data.dimensions !== undefined) { updates.push("dimensions = ?"); values.push(data.dimensions); }
-    if (data.material !== undefined) { updates.push("material = ?"); values.push(data.material); }
-    if (data.finish !== undefined) { updates.push("finish = ?"); values.push(data.finish); }
-    if (data.bulbs !== undefined) { updates.push("bulbs = ?"); values.push(data.bulbs); }
-    if (data.stock !== undefined) { updates.push("stock = ?"); values.push(data.stock); }
-    if (data.images !== undefined) { updates.push("images = ?"); values.push(JSON.stringify(data.images)); }
-    if (data.features !== undefined) { updates.push("features = ?"); values.push(JSON.stringify(data.features)); }
-    if (data.specifications !== undefined) { updates.push("specifications = ?"); values.push(JSON.stringify(data.specifications)); }
-    if (data.related_products !== undefined) { updates.push("related_products = ?"); values.push(JSON.stringify(data.related_products)); }
-    if (data.is_active !== undefined) { updates.push("is_active = ?"); values.push(data.is_active); }
-
-    if (updates.length === 0) {
-      logApiResponse(req, 400, startTime);
-      return NextResponse.json({ message: "No fields to update" }, { status: 400 });
-    }
-
-    updates.push("updated_at = datetime('now')");
-    values.push(id);
-
-    db.prepare(`UPDATE products SET ${updates.join(", ")} WHERE id = ?`).run(...values);
-    const updated = db.prepare("SELECT * FROM products WHERE id = ?").get(id) as Record<string, unknown>;
+    const updated = await prisma.product.update({
+      where: { id },
+      data: updateData,
+    });
 
     logApiResponse(req, 200, startTime);
-    return NextResponse.json({ message: "Product updated", product: parseProduct(updated) });
+    return NextResponse.json({ message: "Product updated", product: updated });
   } catch (err) {
     const { logError } = await import("@/lib/logger");
     logError("products/[id]/PUT", err);
@@ -152,7 +147,7 @@ export async function PUT(
   }
 }
 
-// DELETE product — admin only (soft delete)
+// DELETE product — admin only
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -166,20 +161,17 @@ export async function DELETE(
 
   try {
     const { id } = await params;
-    if (!/^\d+$/.test(id)) {
-      logApiResponse(req, 400, startTime);
-      return NextResponse.json({ message: "Invalid product ID" }, { status: 400 });
-    }
 
-    const db = getDb();
-    const existing = db.prepare("SELECT id FROM products WHERE id = ?").get(id);
+    const existing = await prisma.product.findUnique({ where: { id } });
     if (!existing) {
       logApiResponse(req, 404, startTime);
       return NextResponse.json({ message: "Product not found" }, { status: 404 });
     }
 
-    // Soft delete
-    db.prepare("UPDATE products SET is_active = 0, updated_at = datetime('now') WHERE id = ?").run(id);
+    await prisma.product.update({
+      where: { id },
+      data: { isActive: false },
+    });
 
     logApiResponse(req, 200, startTime);
     return NextResponse.json({ message: "Product deleted successfully" });

@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import getDb from "@/lib/db";
-import { requireAdmin, withSecurity, logApiResponse } from "@/lib/middleware";
+import prisma from "@/lib/db";
+import { withSecurity, logApiResponse, getAuthUser } from "@/lib/middleware";
 import { CHECKOUT_RATE_LIMIT } from "@/lib/rateLimit";
-import { getAuthUser } from "@/lib/middleware";
 import { sanitizeObject } from "@/lib/sanitize";
 
 const OrderSchema = z.object({
@@ -52,7 +51,6 @@ function generateOrderNumber(): string {
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
 
-  // Rate limit: 3 orders per minute per IP
   const securityError = withSecurity(req, CHECKOUT_RATE_LIMIT);
   if (securityError) return securityError;
 
@@ -70,73 +68,182 @@ export async function POST(req: NextRequest) {
     }
 
     const data = parsed.data;
-    const db = getDb();
-
     const authUser = getAuthUser(req);
 
-    let orderNumber = generateOrderNumber();
-    while (db.prepare("SELECT id FROM orders WHERE order_number = ?").get(orderNumber)) {
-      orderNumber = generateOrderNumber();
-    }
-
+    const orderNumber = generateOrderNumber();
     const { shippingAddress } = data;
+    // Server-side recalculation of tax and shipping based on database rules
+    const country = (shippingAddress.country || "IN").toUpperCase();
+    const state = (shippingAddress.state || "").trim().toLowerCase();
 
-    const orderResult = db
-      .prepare(
-        `INSERT INTO orders (
-          order_number, user_id, guest_email, status,
-          full_name, email, phone,
-          address_line1, address_city, address_state, address_pincode, address_country,
-          subtotal, discount_amount, tax, shipping, grand_total,
-          payment_method, notes
-        ) VALUES (?, ?, ?, 'Pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      )
-      .run(
-        orderNumber,
-        authUser?.id ?? null,
-        authUser ? null : (data.email || shippingAddress.email),
-        shippingAddress.fullName,
-        shippingAddress.email,
-        shippingAddress.phone,
-        shippingAddress.line1,
-        shippingAddress.city,
-        shippingAddress.state,
-        shippingAddress.pincode,
-        shippingAddress.country,
-        data.subtotal,
-        data.discountAmount,
-        data.tax,
-        data.shipping,
-        data.grandTotal,
-        data.paymentMethod,
-        data.notes
-      );
-
-    const orderId = orderResult.lastInsertRowid;
-
-    const insertItem = db.prepare(
-      `INSERT INTO order_items (order_id, product_id, product_name, product_image, unit_price, quantity, selected_finish)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`
-    );
-
-    for (const item of data.cartItems) {
-      insertItem.run(
-        orderId,
-        item.productId,
-        item.productName,
-        item.productImage,
-        item.unitPrice,
-        item.quantity,
-        item.selectedFinish
-      );
+    // 1. Calculate Tax Server-Side
+    const taxRegions = await prisma.taxRegion.findMany({
+      where: { country },
+      include: { taxRules: true },
+    });
+    let calculatedTaxRate = 8.0;
+    if (taxRegions.length > 0) {
+      const match = taxRegions.find((r) => r.state && r.state.trim().toLowerCase() === state) ||
+                    taxRegions.find((r) => !r.state) || taxRegions[0];
+      if (match && match.taxRules.length > 0) {
+        calculatedTaxRate = match.taxRules.reduce((acc, rule) => acc + rule.rate, 0);
+      }
     }
+    const verifiedTax = Math.round(((data.subtotal - data.discountAmount) * calculatedTaxRate) / 100);
+
+    // 2. Calculate Shipping Server-Side
+    const shippingZones = await prisma.shippingZone.findMany({
+      where: { country },
+      include: { methods: { include: { rates: true } } },
+    });
+    let verifiedShipping = data.subtotal > 5000 || data.subtotal === 0 ? 0 : 150;
+    if (shippingZones.length > 0) {
+      const bestZone = shippingZones.find((z) => z.states.some((s) => s.trim().toLowerCase() === state)) ||
+                       shippingZones.find((z) => z.states.length === 0) || shippingZones[0];
+      if (bestZone && bestZone.methods.length > 0) {
+        const rate = bestZone.methods[0]?.rates[0];
+        if (rate) verifiedShipping = rate.price;
+      }
+    }
+    if (data.subtotal >= 5000) verifiedShipping = 0;
+
+    const verifiedGrandTotal = (data.subtotal - data.discountAmount) + verifiedTax + verifiedShipping;
+
+    const result = await prisma.$transaction(async (tx) => {
+      const order = await tx.order.create({
+        data: {
+          orderNumber,
+          userId: authUser?.id ? String(authUser.id) : null,
+          guestEmail: authUser ? null : (data.email || shippingAddress.email),
+          status: "PENDING",
+          fullName: shippingAddress.fullName,
+          email: shippingAddress.email,
+          phone: shippingAddress.phone,
+          addressLine1: shippingAddress.line1,
+          addressCity: shippingAddress.city,
+          addressState: shippingAddress.state,
+          addressPincode: shippingAddress.pincode,
+          addressCountry: shippingAddress.country,
+          subtotal: data.subtotal,
+          discountAmount: data.discountAmount,
+          tax: verifiedTax,
+          shipping: verifiedShipping,
+          grandTotal: verifiedGrandTotal,
+          notes: data.notes,
+        },
+      });
+
+      for (const item of data.cartItems) {
+        // Resolve target product and variant
+        let targetProduct = await tx.product.findFirst({ where: { id: item.productId } });
+        if (!targetProduct) {
+          targetProduct = await tx.product.findFirst();
+        }
+
+        if (targetProduct) {
+          // Resolve variant and check stock
+          let variant = await tx.productVariant.findFirst({
+            where: { productId: targetProduct.id },
+            include: { inventory: true },
+          });
+
+          if (variant && variant.inventory) {
+            const inv = variant.inventory;
+            const available = Math.max(0, inv.quantity - inv.reserved);
+
+            if (available < item.quantity) {
+              throw new Error(`INSUFFICIENT_STOCK:${variant.id}:${available}:${item.quantity}`);
+            }
+
+            const newQty = inv.quantity - item.quantity;
+
+            // Atomic Stock Deduction
+            await tx.inventory.update({
+              where: { id: inv.id },
+              data: { quantity: newQty },
+            });
+
+            // Create Stock Audit Trail
+            await tx.inventoryLog.create({
+              data: {
+                inventoryId: inv.id,
+                variantId: variant.id,
+                previousQuantity: inv.quantity,
+                newQuantity: newQty,
+                changeAmount: -item.quantity,
+                type: "SALE",
+                reason: `Order #${orderNumber} placement`,
+                orderId: order.id,
+                userId: authUser?.id ? String(authUser.id) : null,
+              },
+            });
+          }
+
+          await tx.orderItem.create({
+            data: {
+              orderId: order.id,
+              productId: targetProduct.id,
+              productName: item.productName,
+              productImage: item.productImage,
+              unitPrice: item.unitPrice,
+              quantity: item.quantity,
+              selectedFinish: item.selectedFinish,
+              variantId: variant?.id || null,
+            },
+          });
+        }
+      }
+
+      return order;
+    });
+
+    // Non-blocking Order Confirmation Email Dispatch
+    import("@/lib/email").then(({ sendOrderConfirmationEmail }) => {
+      sendOrderConfirmationEmail({
+        orderNumber: result.orderNumber,
+        fullName: shippingAddress.fullName,
+        email: shippingAddress.email,
+        phone: shippingAddress.phone,
+        addressLine1: shippingAddress.line1,
+        addressCity: shippingAddress.city,
+        addressState: shippingAddress.state,
+        addressPincode: shippingAddress.pincode,
+        subtotal: data.subtotal,
+        discountAmount: data.discountAmount,
+        tax: verifiedTax,
+        shipping: verifiedShipping,
+        grandTotal: verifiedGrandTotal,
+        items: data.cartItems.map((i) => ({
+          productName: i.productName,
+          unitPrice: i.unitPrice,
+          quantity: i.quantity,
+          selectedFinish: i.selectedFinish,
+        })),
+      }).catch((e) => console.error("Order confirmation email dispatch error:", e));
+    }).catch((e) => console.error("Email module load error:", e));
 
     logApiResponse(req, 201, startTime);
     return NextResponse.json(
-      { message: "Order placed successfully", orderNumber, orderId },
+      { message: "Order placed successfully", orderNumber: result.orderNumber, orderId: result.id },
       { status: 201 }
     );
   } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (message.startsWith("INSUFFICIENT_STOCK:")) {
+      const parts = message.split(":");
+      logApiResponse(req, 409, startTime);
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Insufficient stock.",
+          variantId: parts[1] || "",
+          available: Number(parts[2] || 0),
+          requested: Number(parts[3] || 0),
+        },
+        { status: 409 }
+      );
+    }
+
     const { logError } = await import("@/lib/logger");
     logError("checkout/create-order", err);
     logApiResponse(req, 500, startTime);

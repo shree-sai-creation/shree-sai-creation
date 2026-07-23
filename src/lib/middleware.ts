@@ -1,14 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyToken, extractTokenFromHeader, JwtPayload } from "./auth";
+import { verifyAccessToken, extractTokenFromHeader, JwtPayload } from "./auth";
 import { checkRateLimit, RateLimitOptions } from "./rateLimit";
 import { getClientIp, logRequest, logError } from "./logger";
 
 export { getClientIp, logError };
 
 export function getAuthUser(req: NextRequest): JwtPayload | null {
-  const token = extractTokenFromHeader(req.headers.get("authorization"));
+  // First check Authorization header
+  let token = extractTokenFromHeader(req.headers.get("authorization"));
+
+  // Second check HttpOnly cookie
+  if (!token) {
+    token = req.cookies.get("shreesai_access_token")?.value || null;
+  }
+
   if (!token) return null;
-  return verifyToken(token);
+  return verifyAccessToken(token);
 }
 
 export function requireAuth(
@@ -38,7 +45,7 @@ export function requireAdmin(
       ),
     };
   }
-  if (user.role !== "admin") {
+  if (user.role !== "admin" && user.role !== "super_admin") {
     return {
       error: NextResponse.json(
         { message: "Admin access required" },
@@ -49,10 +56,29 @@ export function requireAdmin(
   return { user };
 }
 
-/**
- * Apply rate limiting to a request.
- * Returns a 429 NextResponse if limit exceeded, otherwise null.
- */
+export function requireSuperAdmin(
+  req: NextRequest
+): { user: JwtPayload } | { error: NextResponse } {
+  const user = getAuthUser(req);
+  if (!user) {
+    return {
+      error: NextResponse.json(
+        { message: "Authentication required" },
+        { status: 401 }
+      ),
+    };
+  }
+  if (user.role !== "super_admin") {
+    return {
+      error: NextResponse.json(
+        { message: "Super Admin access required" },
+        { status: 403 }
+      ),
+    };
+  }
+  return { user };
+}
+
 export function applyRateLimit(
   req: NextRequest,
   options: RateLimitOptions
@@ -61,7 +87,6 @@ export function applyRateLimit(
   const result = checkRateLimit(ip, options);
 
   if (!result.success) {
-    // Log rate limit hit
     logRequest({
       method: req.method,
       path: req.nextUrl.pathname,
@@ -91,14 +116,10 @@ export function applyRateLimit(
   return null;
 }
 
-/**
- * Wrap an API handler with rate limiting + request logging.
- */
 export function withSecurity(
   req: NextRequest,
   rateLimitOptions?: RateLimitOptions
 ): NextResponse | null {
-  // Apply rate limit if options provided
   if (rateLimitOptions) {
     const rateLimitError = applyRateLimit(req, rateLimitOptions);
     if (rateLimitError) return rateLimitError;
@@ -107,9 +128,6 @@ export function withSecurity(
   return null;
 }
 
-/**
- * Log a completed API response.
- */
 export function logApiResponse(
   req: NextRequest,
   status: number,

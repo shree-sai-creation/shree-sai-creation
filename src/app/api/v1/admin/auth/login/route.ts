@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
-import getDb from "@/lib/db";
-import { signToken } from "@/lib/auth";
-import { withSecurity, logApiResponse } from "@/lib/middleware";
+import prisma from "@/lib/db";
+import { signAccessToken, signRefreshToken, hashToken, generateRandomToken } from "@/lib/auth";
+import { withSecurity, logApiResponse, getClientIp } from "@/lib/middleware";
 import { AUTH_RATE_LIMIT } from "@/lib/rateLimit";
+import { handleFailedLogin, handleSuccessfulLogin, isAccountLocked, setAuthCookies, logSecurityAudit } from "@/lib/security";
 
 const LoginSchema = z.object({
   email: z.string().email("Invalid email").max(200),
@@ -13,11 +14,11 @@ const LoginSchema = z.object({
 
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
+  const ip = getClientIp(req);
 
-  // Rate limit: 5 attempts per minute — extra important for admin
   const securityError = withSecurity(req, {
     ...AUTH_RATE_LIMIT,
-    limit: 3, // Stricter for admin
+    limit: 3,
     prefix: "admin-auth",
   });
   if (securityError) return securityError;
@@ -35,19 +36,12 @@ export async function POST(req: NextRequest) {
     }
 
     const { email, password } = parsed.data;
-    const db = getDb();
 
-    const admin = db
-      .prepare("SELECT id, name, email, password_hash FROM admins WHERE email = ?")
-      .get(email.toLowerCase()) as {
-        id: number;
-        name: string;
-        email: string;
-        password_hash: string;
-      } | undefined;
+    const user = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
+    });
 
-    // Constant-time response — prevent admin account enumeration
-    if (!admin) {
+    if (!user || (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN")) {
       await bcrypt.compare(password, "$2b$12$invalidhashtopreventtimingattack");
       logApiResponse(req, 401, startTime);
       return NextResponse.json(
@@ -56,8 +50,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const isValid = await bcrypt.compare(password, admin.password_hash);
+    if (await isAccountLocked(user)) {
+      logApiResponse(req, 423, startTime);
+      return NextResponse.json(
+        { message: "Account locked due to repeated failed login attempts. Please try again in 15 minutes." },
+        { status: 423 }
+      );
+    }
+
+    const isValid = await bcrypt.compare(password, user.passwordHash);
     if (!isValid) {
+      await handleFailedLogin(user.id, ip);
       logApiResponse(req, 401, startTime);
       return NextResponse.json(
         { message: "Invalid admin credentials" },
@@ -65,19 +68,49 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const token = signToken({
-      id: admin.id,
-      email: admin.email,
-      role: "admin",
-      name: admin.name,
+    await handleSuccessfulLogin(user.id, ip);
+
+    await logSecurityAudit({
+      userId: user.id,
+      action: "ADMIN_LOGIN_SUCCESS",
+      entityType: "User",
+      entityId: user.id,
+      ipAddress: ip,
     });
 
-    logApiResponse(req, 200, startTime);
-    return NextResponse.json({
-      message: "Admin login successful",
-      token,
-      admin: { id: admin.id, name: admin.name, email: admin.email },
+    const payload = {
+      id: user.id,
+      email: user.email,
+      role: "admin" as const,
+      name: user.name,
+    };
+
+    const family = generateRandomToken();
+    const accessToken = signAccessToken(payload);
+    const refreshToken = signRefreshToken(payload, family);
+
+    await prisma.refreshToken.create({
+      data: {
+        userId: user.id,
+        tokenHash: hashToken(refreshToken),
+        family,
+        ipAddress: ip,
+        userAgent: req.headers.get("user-agent") || null,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
     });
+
+    const res = NextResponse.json({
+      message: "Admin login successful",
+      token: accessToken,
+      refreshToken,
+      admin: { id: user.id, name: user.name, email: user.email },
+    });
+
+    setAuthCookies(res, accessToken, refreshToken);
+
+    logApiResponse(req, 200, startTime);
+    return res;
   } catch (err) {
     const { logError } = await import("@/lib/logger");
     logError("admin/auth/login", err);

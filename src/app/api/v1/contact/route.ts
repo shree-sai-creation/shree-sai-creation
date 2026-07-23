@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import getDb from "@/lib/db";
+import prisma from "@/lib/db";
 import { withSecurity, logApiResponse } from "@/lib/middleware";
 import { CONTACT_RATE_LIMIT, GENERAL_RATE_LIMIT } from "@/lib/rateLimit";
 import { sanitizeObject } from "@/lib/sanitize";
@@ -17,7 +17,6 @@ const ContactSchema = z.object({
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
 
-  // Strict rate limit: 3 messages per 10 minutes per IP
   const securityError = withSecurity(req, CONTACT_RATE_LIMIT);
   if (securityError) return securityError;
 
@@ -35,11 +34,20 @@ export async function POST(req: NextRequest) {
     }
 
     const { name, email, phone, subject, message } = parsed.data;
-    const db = getDb();
 
-    db.prepare(
-      "INSERT INTO contact_messages (name, email, phone, subject, message) VALUES (?, ?, ?, ?, ?)"
-    ).run(name, email, phone, subject, message);
+    await prisma.notification.create({
+      data: {
+        userId: "00000000-0000-0000-0000-000000000000", // System notification placeholder
+        channel: "IN_APP",
+        title: subject || `Contact from ${name}`,
+        message: `From: ${name} (${email}, ${phone}): ${message}`,
+      },
+    }).catch(() => null);
+
+    // Non-blocking Email Dispatch to Admin and Customer
+    import("@/lib/email").then(({ sendContactFormNotification }) => {
+      sendContactFormNotification({ name, email, phone, message }).catch((e) => console.error("Contact email error:", e));
+    }).catch((e) => console.error("Email module load error:", e));
 
     logApiResponse(req, 201, startTime);
     return NextResponse.json(
@@ -54,7 +62,6 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// GET contact messages (admin only)
 export async function GET(req: NextRequest) {
   const startTime = Date.now();
   const securityError = withSecurity(req, GENERAL_RATE_LIMIT);
@@ -74,13 +81,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ message: "Admin access required" }, { status: 403 });
     }
 
-    const db = getDb();
-    const messages = db
-      .prepare("SELECT * FROM contact_messages ORDER BY created_at DESC LIMIT 100")
-      .all();
+    const notifications = await prisma.notification.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    });
 
     logApiResponse(req, 200, startTime);
-    return NextResponse.json({ messages });
+    return NextResponse.json({ messages: notifications });
   } catch (err) {
     const { logError } = await import("@/lib/logger");
     logError("contact/GET", err);

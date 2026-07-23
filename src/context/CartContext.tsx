@@ -52,6 +52,8 @@ interface CartContextType {
   toasts: ToastMessage[];
   addToast: (message: string, type?: "success" | "info" | "error") => void;
   removeToast: (id: string) => void;
+  updateShippingAndTax: (stateName: string, countryName?: string, pincode?: string) => Promise<void>;
+  shippingMethodName: string;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -518,6 +520,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Dynamic shipping and tax states from API
+  const [dynamicTaxAmount, setDynamicTaxAmount] = useState<number | null>(null);
+  const [dynamicShippingAmount, setDynamicShippingAmount] = useState<number | null>(null);
+  const [shippingMethodName, setShippingMethodName] = useState<string>("White-Glove Delivery");
+
   // Calculations
   const subtotal = cart.reduce((acc, item) => {
     return acc + item.product.price * item.quantity;
@@ -525,9 +532,54 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const discountAmount = (subtotal * discountPercent) / 100;
   const taxableAmount = subtotal - discountAmount;
-  const tax = taxableAmount * 0.08;
-  const shipping = subtotal > 5000 || subtotal === 0 ? 0 : 150;
+  
+  const tax = dynamicTaxAmount !== null ? dynamicTaxAmount : Math.round(taxableAmount * 0.08);
+  const shipping = dynamicShippingAmount !== null ? dynamicShippingAmount : (subtotal > 5000 || subtotal === 0 ? 0 : 150);
   const total = taxableAmount + tax + shipping;
+
+  const updateShippingAndTax = async (stateName: string, countryName: string = "IN", pincode: string = "") => {
+    try {
+      // 1. Fetch Shipping
+      const shipRes = await fetch("/api/v1/shipping/calculate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          country: countryName,
+          state: stateName,
+          pincode,
+          cartTotal: subtotal,
+        }),
+      });
+      if (shipRes.ok) {
+        const shipData = await shipRes.json();
+        if (typeof shipData.shippingCost === "number") {
+          setDynamicShippingAmount(shipData.shippingCost);
+        }
+        if (shipData.shippingMethod) {
+          setShippingMethodName(shipData.shippingMethod);
+        }
+      }
+
+      // 2. Fetch Tax
+      const taxRes = await fetch("/api/v1/tax/calculate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          country: countryName,
+          state: stateName,
+          subtotal: taxableAmount,
+        }),
+      });
+      if (taxRes.ok) {
+        const taxData = await taxRes.json();
+        if (typeof taxData.taxAmount === "number") {
+          setDynamicTaxAmount(taxData.taxAmount);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to update dynamic shipping and tax:", e);
+    }
+  };
 
   return (
     <CartContext.Provider
@@ -564,6 +616,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         toasts,
         addToast,
         removeToast,
+        updateShippingAndTax,
+        shippingMethodName,
       }}
     >
       {children}

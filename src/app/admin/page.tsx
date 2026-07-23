@@ -128,8 +128,14 @@ export default function AdminPage() {
   const [isAuth, setIsAuth] = useState(false);
   const [adminUser, setAdminUser] = useState<{ email: string; name: string } | null>(null);
 
-  // Active Tab: dashboard, products, orders, users
-  const [activeTab, setActiveTab] = useState<"dashboard" | "products" | "orders" | "users">("dashboard");
+  // Active Tab: dashboard, products, orders, users, shipping, tax
+  const [activeTab, setActiveTab] = useState<"dashboard" | "products" | "orders" | "users" | "shipping" | "tax">("dashboard");
+
+  // Shipping & Tax management states
+  const [shippingZones, setShippingZones] = useState<any[]>([]);
+  const [taxRegions, setTaxRegions] = useState<any[]>([]);
+  const [shippingLoading, setShippingLoading] = useState(false);
+  const [taxLoading, setTaxLoading] = useState(false);
 
   // Users management state
   const [users, setUsers] = useState<{ id: number; name: string; email: string; role: string; created_at: string }[]>([]);
@@ -361,6 +367,30 @@ export default function AdminPage() {
           }
         })
         .catch((err) => console.error("Error loading products in admin page:", err));
+
+      // Load shipping zones
+      setShippingLoading(true);
+      fetch("/api/v1/admin/shipping/zones", {
+        headers: { "Authorization": `Bearer ${parsed.token}` }
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.zones && Array.isArray(data.zones)) setShippingZones(data.zones);
+        })
+        .catch(err => console.error("Error loading shipping zones:", err))
+        .finally(() => setShippingLoading(false));
+
+      // Load tax regions
+      setTaxLoading(true);
+      fetch("/api/v1/admin/tax/regions", {
+        headers: { "Authorization": `Bearer ${parsed.token}` }
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.regions && Array.isArray(data.regions)) setTaxRegions(data.regions);
+        })
+        .catch(err => console.error("Error loading tax regions:", err))
+        .finally(() => setTaxLoading(false));
 
       // Load users
       setUsersLoading(true);
@@ -688,11 +718,13 @@ export default function AdminPage() {
               { id: "dashboard", label: "Dashboard", icon: <LayoutDashboard size={16} /> },
               { id: "products", label: "Products Catalog", icon: <Package size={16} /> },
               { id: "orders", label: "Orders Fulfilment", icon: <ShoppingBag size={16} /> },
-              { id: "users", label: "User Management", icon: <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> }
+              { id: "users", label: "User Management", icon: <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
+              { id: "shipping", label: "Shipping Engine", icon: <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg> },
+              { id: "tax", label: "Tax Engine", icon: <SlidersHorizontal size={16} /> }
             ].map(tab => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as "dashboard" | "products" | "orders" | "users")}
+                onClick={() => setActiveTab(tab.id as any)}
                 className={`flex items-center gap-3 px-4 py-3 rounded-lg text-xs uppercase tracking-wider transition-all text-left ${
                   activeTab === tab.id
                     ? "bg-[rgb(var(--gold))] text-black font-semibold shadow-md"
@@ -724,10 +756,10 @@ export default function AdminPage() {
         {/* Mobile quick navigation tabs */}
         <div className="flex md:hidden items-center justify-between border-b border-[rgb(var(--border))] pb-4 mb-6">
           <div className="flex gap-2 flex-wrap">
-            {["dashboard", "products", "orders", "users"].map((tab) => (
+            {["dashboard", "products", "orders", "users", "shipping", "tax"].map((tab) => (
               <button
                 key={tab}
-                onClick={() => setActiveTab(tab as "dashboard" | "products" | "orders" | "users")}
+                onClick={() => setActiveTab(tab as any)}
                 className={`text-[9px] uppercase tracking-widest px-3 py-1.5 rounded-full border transition-all ${
                   activeTab === tab 
                     ? "bg-[rgb(var(--gold))] text-black border-[rgb(var(--gold))] font-medium" 
@@ -754,6 +786,8 @@ export default function AdminPage() {
               {activeTab === "products" && "Product Catalog Manager"}
               {activeTab === "orders" && "Fulfillment Operations"}
               {activeTab === "users" && "User Management"}
+              {activeTab === "shipping" && "Shipping Zones & Rates"}
+              {activeTab === "tax" && "Tax Regions & Rules"}
             </h1>
             <div className="w-12 h-[1.5px] bg-[rgb(var(--gold))]/30 mt-3" />
           </div>
@@ -1248,6 +1282,232 @@ export default function AdminPage() {
                 </table>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* ── TAB 5: SHIPPING ENGINE ─────────────────────── */}
+        {activeTab === "shipping" && (
+          <div className="space-y-6 animate-fade-up">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-[rgb(var(--foreground))] tracking-wider uppercase">Shipping Zones & Rates</h3>
+                <p className="text-[10px] text-[rgb(var(--text-muted))]">Configure regional white-glove shipping rates and weight parameters.</p>
+              </div>
+              <button
+                onClick={async () => {
+                  const name = window.prompt("Enter Shipping Zone Name (e.g., North India Zone):");
+                  if (!name) return;
+                  const statesStr = window.prompt("Enter States (comma separated, or leave blank for all):") || "";
+                  const states = statesStr.split(",").map(s => s.trim()).filter(Boolean);
+                  
+                  const storedUser = localStorage.getItem("shree_sai_user");
+                  const parsed = storedUser ? JSON.parse(storedUser) : null;
+                  const res = await fetch("/api/v1/admin/shipping/zones", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${parsed?.token}` },
+                    body: JSON.stringify({ name, country: "IN", states })
+                  });
+                  if (res.ok) {
+                    const data = await res.json();
+                    setShippingZones(prev => [...prev, data.zone]);
+                    alert("Shipping Zone Created!");
+                  }
+                }}
+                className="bg-[rgb(var(--gold))] text-black font-semibold text-[9px] uppercase tracking-widest px-4 py-2 rounded-lg hover:bg-[rgb(var(--gold-hover))] transition-all flex items-center gap-1.5"
+              >
+                <Plus size={14} /> Add Shipping Zone
+              </button>
+            </div>
+
+            {shippingLoading ? (
+              <div className="p-8 text-center text-[10px] text-[rgb(var(--text-muted))] uppercase tracking-widest">Loading Shipping Engine...</div>
+            ) : shippingZones.length === 0 ? (
+              <div className="p-8 text-center text-[10px] text-[rgb(var(--text-muted))] border border-[rgb(var(--border))] rounded-2xl bg-[rgb(var(--surface))]">
+                No custom shipping zones defined. Default complimentary shipping rule applies.
+              </div>
+            ) : (
+              <div className="grid gap-6">
+                {shippingZones.map((zone) => (
+                  <div key={zone.id} className="bg-[rgb(var(--surface))] border border-[rgb(var(--border))] rounded-2xl p-6 space-y-4">
+                    <div className="flex items-center justify-between border-b border-[rgb(var(--border))] pb-3">
+                      <div>
+                        <h4 className="font-serif text-lg text-[rgb(var(--gold))] tracking-wide">{zone.name}</h4>
+                        <p className="text-[9px] text-[rgb(var(--text-muted))] tracking-widest uppercase">
+                          Country: {zone.country} | States: {zone.states.length > 0 ? zone.states.join(", ") : "All States"}
+                        </p>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          if (!window.confirm(`Delete Zone "${zone.name}"?`)) return;
+                          const storedUser = localStorage.getItem("shree_sai_user");
+                          const parsed = storedUser ? JSON.parse(storedUser) : null;
+                          const res = await fetch(`/api/v1/admin/shipping/zones/${zone.id}`, {
+                            method: "DELETE",
+                            headers: { "Authorization": `Bearer ${parsed?.token}` }
+                          });
+                          if (res.ok) {
+                            setShippingZones(prev => prev.filter(z => z.id !== zone.id));
+                          }
+                        }}
+                        className="text-red-400 text-[9px] tracking-widest uppercase hover:underline flex items-center gap-1"
+                      >
+                        <Trash2 size={12} /> Delete Zone
+                      </button>
+                    </div>
+
+                    {/* Methods & Rates */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] uppercase font-semibold text-[rgb(var(--foreground))] tracking-wider">Shipping Methods & Rates</span>
+                        <button
+                          onClick={async () => {
+                            const methodName = window.prompt("Enter Method Name (e.g. White-Glove Standard Crate):") || "Standard Crate";
+                            const storedUser = localStorage.getItem("shree_sai_user");
+                            const parsed = storedUser ? JSON.parse(storedUser) : null;
+                            const res = await fetch("/api/v1/admin/shipping/methods", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json", "Authorization": `Bearer ${parsed?.token}` },
+                              body: JSON.stringify({ zoneId: zone.id, name: methodName, isMinOrder: false })
+                            });
+                            if (res.ok) {
+                              const mData = await res.json();
+                              const priceStr = window.prompt("Enter Flat Rate Price (₹):") || "150";
+                              await fetch("/api/v1/admin/shipping/rates", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${parsed?.token}` },
+                                body: JSON.stringify({
+                                  methodId: mData.method.id,
+                                  price: Number(priceStr) || 150,
+                                  minWeightKg: 0,
+                                  estimatedDaysMin: 3,
+                                  estimatedDaysMax: 7
+                                })
+                              });
+                              alert("Shipping Method & Rate Added!");
+                              // reload zones
+                              const zRes = await fetch("/api/v1/admin/shipping/zones", { headers: { "Authorization": `Bearer ${parsed?.token}` } });
+                              const zData = await zRes.json();
+                              if (zData.zones) setShippingZones(zData.zones);
+                            }
+                          }}
+                          className="text-[8px] bg-white/5 border border-white/10 px-3 py-1 rounded-full uppercase tracking-widest hover:border-[rgb(var(--gold))] text-[rgb(var(--text-secondary))] hover:text-white transition-all"
+                        >
+                          + Add Rate Method
+                        </button>
+                      </div>
+
+                      {zone.methods && zone.methods.map((method: any) => (
+                        <div key={method.id} className="bg-black/20 p-4 rounded-xl space-y-2 border border-white/5">
+                          <p className="text-[10px] font-semibold text-[rgb(var(--foreground))]">{method.name}</p>
+                          {method.rates && method.rates.map((rate: any) => (
+                            <div key={rate.id} className="flex items-center justify-between text-[9px] text-[rgb(var(--text-muted))]">
+                              <span>Price: ₹{rate.price} | Delivery: {rate.estimatedDaysMin}-{rate.estimatedDaysMax} Days</span>
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── TAB 6: TAX ENGINE ─────────────────────── */}
+        {activeTab === "tax" && (
+          <div className="space-y-6 animate-fade-up">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-[rgb(var(--foreground))] tracking-wider uppercase">Tax Regions & Rules</h3>
+                <p className="text-[10px] text-[rgb(var(--text-muted))]">Configure regional GST and state tax rate rules.</p>
+              </div>
+              <button
+                onClick={async () => {
+                  const state = window.prompt("Enter State Name (leave blank for default country rule):");
+                  const storedUser = localStorage.getItem("shree_sai_user");
+                  const parsed = storedUser ? JSON.parse(storedUser) : null;
+                  const res = await fetch("/api/v1/admin/tax/regions", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${parsed?.token}` },
+                    body: JSON.stringify({ country: "IN", state: state || null })
+                  });
+                  if (res.ok) {
+                    const data = await res.json();
+                    const ruleName = window.prompt("Enter Tax Rule Name (e.g. Standard GST):") || "GST";
+                    const rateStr = window.prompt("Enter Tax Rate Percentage (e.g. 18):") || "8";
+                    await fetch("/api/v1/admin/tax/rules", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${parsed?.token}` },
+                      body: JSON.stringify({
+                        regionId: data.region.id,
+                        name: ruleName,
+                        rate: Number(rateStr) || 8,
+                        isInclusive: true
+                      })
+                    });
+                    alert("Tax Region & Rule Created!");
+                    const rRes = await fetch("/api/v1/admin/tax/regions", { headers: { "Authorization": `Bearer ${parsed?.token}` } });
+                    const rData = await rRes.json();
+                    if (rData.regions) setTaxRegions(rData.regions);
+                  }
+                }}
+                className="bg-[rgb(var(--gold))] text-black font-semibold text-[9px] uppercase tracking-widest px-4 py-2 rounded-lg hover:bg-[rgb(var(--gold-hover))] transition-all flex items-center gap-1.5"
+              >
+                <Plus size={14} /> Add Tax Region
+              </button>
+            </div>
+
+            {taxLoading ? (
+              <div className="p-8 text-center text-[10px] text-[rgb(var(--text-muted))] uppercase tracking-widest">Loading Tax Engine...</div>
+            ) : taxRegions.length === 0 ? (
+              <div className="p-8 text-center text-[10px] text-[rgb(var(--text-muted))] border border-[rgb(var(--border))] rounded-2xl bg-[rgb(var(--surface))]">
+                No custom tax regions defined. Baseline default 8% GST rate rule applies.
+              </div>
+            ) : (
+              <div className="grid gap-6">
+                {taxRegions.map((region) => (
+                  <div key={region.id} className="bg-[rgb(var(--surface))] border border-[rgb(var(--border))] rounded-2xl p-6 space-y-4">
+                    <div className="flex items-center justify-between border-b border-[rgb(var(--border))] pb-3">
+                      <div>
+                        <h4 className="font-serif text-lg text-[rgb(var(--gold))] tracking-wide">{region.state ? region.state : "Default Country Region (India)"}</h4>
+                        <p className="text-[9px] text-[rgb(var(--text-muted))] tracking-widest uppercase">Country: {region.country}</p>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          if (!window.confirm(`Delete Tax Region?`)) return;
+                          const storedUser = localStorage.getItem("shree_sai_user");
+                          const parsed = storedUser ? JSON.parse(storedUser) : null;
+                          const res = await fetch(`/api/v1/admin/tax/regions/${region.id}`, {
+                            method: "DELETE",
+                            headers: { "Authorization": `Bearer ${parsed?.token}` }
+                          });
+                          if (res.ok) {
+                            setTaxRegions(prev => prev.filter(r => r.id !== region.id));
+                          }
+                        }}
+                        className="text-red-400 text-[9px] tracking-widest uppercase hover:underline flex items-center gap-1"
+                      >
+                        <Trash2 size={12} /> Delete Region
+                      </button>
+                    </div>
+
+                    {/* Tax Rules list */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] uppercase font-semibold text-[rgb(var(--foreground))] tracking-wider">Configured Tax Rules</span>
+                      </div>
+                      {region.taxRules && region.taxRules.map((rule: any) => (
+                        <div key={rule.id} className="flex items-center justify-between bg-black/20 p-3 rounded-xl border border-white/5 text-[9px]">
+                          <span className="font-semibold text-[rgb(var(--foreground))]">{rule.name}</span>
+                          <span className="text-[rgb(var(--gold))] font-sans font-semibold">{rule.rate}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

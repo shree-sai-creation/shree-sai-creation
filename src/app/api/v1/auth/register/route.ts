@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
-import getDb from "@/lib/db";
-import { signToken } from "@/lib/auth";
-import { withSecurity, logApiResponse } from "@/lib/middleware";
+import prisma from "@/lib/db";
+import { signAccessToken, signRefreshToken, hashToken, generateRandomToken } from "@/lib/auth";
+import { withSecurity, logApiResponse, getClientIp } from "@/lib/middleware";
 import { AUTH_RATE_LIMIT } from "@/lib/rateLimit";
 import { sanitizeObject } from "@/lib/sanitize";
+import { setAuthCookies, logSecurityAudit } from "@/lib/security";
 
 const RegisterSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").max(100),
@@ -15,8 +16,8 @@ const RegisterSchema = z.object({
 
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
+  const ip = getClientIp(req);
 
-  // Rate limit: 5 registrations per minute per IP
   const securityError = withSecurity(req, AUTH_RATE_LIMIT);
   if (securityError) return securityError;
 
@@ -34,9 +35,11 @@ export async function POST(req: NextRequest) {
     }
 
     const { name, email, password } = parsed.data;
-    const db = getDb();
 
-    const existing = db.prepare("SELECT id FROM users WHERE email = ?").get(email);
+    const existing = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
+    });
+
     if (existing) {
       logApiResponse(req, 409, startTime);
       return NextResponse.json(
@@ -46,26 +49,75 @@ export async function POST(req: NextRequest) {
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
-    const result = db
-      .prepare("INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)")
-      .run(name, email.toLowerCase(), passwordHash);
-
-    const token = signToken({
-      id: result.lastInsertRowid as number,
-      email: email.toLowerCase(),
-      role: "customer",
-      name,
+    const newUser = await prisma.user.create({
+      data: {
+        name,
+        email: email.toLowerCase(),
+        passwordHash,
+        role: "CUSTOMER",
+      },
     });
 
-    logApiResponse(req, 201, startTime);
-    return NextResponse.json(
+    // Generate email verification token
+    const verifyToken = generateRandomToken();
+    await prisma.emailVerificationToken.create({
+      data: {
+        userId: newUser.id,
+        tokenHash: hashToken(verifyToken),
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      },
+    });
+
+    // Non-blocking Email Notifications
+    import("@/lib/email").then(({ sendWelcomeEmail, sendVerificationEmail }) => {
+      sendWelcomeEmail(newUser.email, newUser.name).catch((e) => console.error("Welcome email error:", e));
+      sendVerificationEmail(newUser.email, newUser.name, verifyToken).catch((e) => console.error("Verification email error:", e));
+    }).catch((e) => console.error("Email module load error:", e));
+
+    await logSecurityAudit({
+      userId: newUser.id,
+      action: "REGISTER",
+      entityType: "User",
+      entityId: newUser.id,
+      ipAddress: ip,
+    });
+
+    const payload = {
+      id: newUser.id,
+      email: newUser.email,
+      role: "customer" as const,
+      name: newUser.name,
+    };
+
+    const family = generateRandomToken();
+    const accessToken = signAccessToken(payload);
+    const refreshToken = signRefreshToken(payload, family);
+
+    await prisma.refreshToken.create({
+      data: {
+        userId: newUser.id,
+        tokenHash: hashToken(refreshToken),
+        family,
+        ipAddress: ip,
+        userAgent: req.headers.get("user-agent") || null,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
+    });
+
+    const res = NextResponse.json(
       {
         message: "Account created successfully",
-        token,
-        user: { id: result.lastInsertRowid, name, email: email.toLowerCase(), role: "customer" },
+        token: accessToken,
+        refreshToken,
+        user: { id: newUser.id, name: newUser.name, email: newUser.email, role: "customer" },
       },
       { status: 201 }
     );
+
+    setAuthCookies(res, accessToken, refreshToken);
+
+    logApiResponse(req, 201, startTime);
+    return res;
   } catch (err) {
     const { logError } = await import("@/lib/logger");
     logError("auth/register", err);

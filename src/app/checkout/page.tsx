@@ -5,10 +5,9 @@ import Link from "next/link";
 import { useCart } from "@/context/CartContext";
 import { CreditCard, Landmark, CheckCircle, ArrowRight, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { addOrder } from "@/utils/db";
 
 export default function CheckoutPage() {
-  const { cart, clearCart, subtotal, discountAmount, tax, shipping, total, formatPrice } = useCart();
+  const { cart, clearCart, subtotal, discountAmount, tax, shipping, total, formatPrice, updateShippingAndTax } = useCart();
 
   // Checkout phase: form -> success
   const [isCompleted, setIsCompleted] = useState(false);
@@ -31,6 +30,13 @@ export default function CheckoutPage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+
+  // Dynamically update tax and shipping when state or zip is modified
+  React.useEffect(() => {
+    if (formData.state || formData.zip) {
+      updateShippingAndTax(formData.state, "IN", formData.zip);
+    }
+  }, [formData.state, formData.zip, updateShippingAndTax]);
 
   const handleOrderSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,6 +79,17 @@ export default function CheckoutPage() {
         quantity: item.quantity,
         selectedFinish: item.selectedFinish || "",
       }));
+
+      // Validate stock before submitting order
+      const valRes = await fetch("/api/v1/inventory/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: cartItems })
+      });
+      if (!valRes.ok) {
+        const valData = await valRes.json();
+        throw new Error(valData.error || valData.message || "Insufficient stock for one or more items.");
+      }
 
       const createRes = await fetch("/api/v1/checkout/create-order", {
         method: "POST",
@@ -355,7 +372,7 @@ export default function CheckoutPage() {
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Tax (8%)</span>
+                    <span>Estimated Tax</span>
                     <span className="text-white font-sans">{formatPrice(tax)}</span>
                   </div>
                 </div>

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import getDb from "@/lib/db";
+import prisma from "@/lib/db";
 import { requireAdmin, withSecurity, logApiResponse } from "@/lib/middleware";
 import { GENERAL_RATE_LIMIT } from "@/lib/rateLimit";
+import { OrderStatus } from "@prisma/client";
 
-// GET all orders — admin only
 export async function GET(req: NextRequest) {
   const startTime = Date.now();
   const securityError = withSecurity(req, GENERAL_RATE_LIMIT);
@@ -16,45 +16,35 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const db = getDb();
     const { searchParams } = new URL(req.url);
 
     const status = searchParams.get("status");
     const limit = Math.min(parseInt(searchParams.get("limit") || "100"), 200);
     const offset = Math.max(parseInt(searchParams.get("offset") || "0"), 0);
 
-    let query = "SELECT * FROM orders";
-    const params: (string | number)[] = [];
+    const whereClause: Record<string, unknown> = {};
 
-    const validStatuses = ["Pending", "Crating", "Shipped", "Delivered", "Cancelled"];
-    if (status && validStatuses.includes(status)) {
-      query += " WHERE status = ?";
-      params.push(status);
+    if (status && status !== "All") {
+      const upperStatus = status.toUpperCase();
+      if (Object.values(OrderStatus).includes(upperStatus as OrderStatus)) {
+        whereClause.status = upperStatus as OrderStatus;
+      }
     }
 
-    query += " ORDER BY created_at DESC LIMIT ? OFFSET ?";
-    params.push(limit, offset);
+    const orders = await prisma.order.findMany({
+      where: whereClause,
+      include: { items: true },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+      skip: offset,
+    });
 
-    const orders = db.prepare(query).all(...params) as Array<Record<string, unknown>>;
-
-    // Fetch items for each order
-    const getItems = db.prepare("SELECT * FROM order_items WHERE order_id = ?");
-    const ordersWithItems = orders.map((order) => ({
-      ...order,
-      items: getItems.all(order.id),
-    }));
-
-    const countQuery =
-      status && validStatuses.includes(status)
-        ? "SELECT COUNT(*) as count FROM orders WHERE status = ?"
-        : "SELECT COUNT(*) as count FROM orders";
-    const countParams = status && validStatuses.includes(status) ? [status] : [];
-    const totalCount = db.prepare(countQuery).get(...countParams) as { count: number };
+    const total = await prisma.order.count({ where: whereClause });
 
     logApiResponse(req, 200, startTime);
     return NextResponse.json({
-      orders: ordersWithItems,
-      total: totalCount.count,
+      orders,
+      total,
       limit,
       offset,
     });

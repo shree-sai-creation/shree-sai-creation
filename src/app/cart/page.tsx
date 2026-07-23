@@ -195,7 +195,7 @@ export default function CartPage() {
                   </div>
 
                   <div className="flex justify-between">
-                    <span>Estimated Tax (8%)</span>
+                    <span>Estimated Tax</span>
                     <span className="text-white font-sans">{formatPrice(tax)}</span>
                   </div>
                 </div>

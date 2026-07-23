@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import getDb from "@/lib/db";
+import prisma from "@/lib/db";
 import { requireAuth, withSecurity, logApiResponse } from "@/lib/middleware";
 import { GENERAL_RATE_LIMIT } from "@/lib/rateLimit";
 
@@ -16,11 +16,17 @@ export async function GET(req: NextRequest) {
 
   try {
     const { user: authUser } = authResult;
-    const db = getDb();
 
-    const user = db
-      .prepare("SELECT id, name, email, role, created_at FROM users WHERE id = ?")
-      .get(authUser.id) as { id: number; name: string; email: string; role: string; created_at: string } | undefined;
+    const user = await prisma.user.findUnique({
+      where: { id: String(authUser.id) },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        createdAt: true,
+      },
+    });
 
     if (!user) {
       logApiResponse(req, 404, startTime);
@@ -28,7 +34,15 @@ export async function GET(req: NextRequest) {
     }
 
     logApiResponse(req, 200, startTime);
-    return NextResponse.json({ user });
+    return NextResponse.json({
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role.toLowerCase(),
+        created_at: user.createdAt.toISOString(),
+      },
+    });
   } catch (err) {
     const { logError } = await import("@/lib/logger");
     logError("auth/me", err);

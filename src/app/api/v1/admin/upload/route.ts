@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import path from "path";
-import fs from "fs";
+import prisma from "@/lib/db";
 import { requireAdmin, logApiResponse } from "@/lib/middleware";
+import {
+  uploadFileToStorage,
+  ALLOWED_IMAGE_TYPES,
+  ALLOWED_DOCUMENT_TYPES,
+  MAX_IMAGE_SIZE_BYTES,
+  MAX_DOCUMENT_SIZE_BYTES,
+} from "@/lib/storage";
 
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
-
-// POST /api/v1/admin/upload — Upload product image to public/uploads
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
   const authResult = requireAdmin(req);
@@ -21,53 +21,82 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const file = (formData.get("file") || formData.get("image")) as File | null;
+    const bucket = (formData.get("bucket") as string) || "products";
 
     if (!file) {
       logApiResponse(req, 400, startTime);
-      return NextResponse.json({ message: "No image file provided" }, { status: 400 });
+      return NextResponse.json({ message: "No file provided" }, { status: 400 });
     }
 
-    // Validate type
-    const validTypes = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif", "image/svg+xml"];
-    if (!validTypes.includes(file.type)) {
+    const ext = path.extname(file.name).toLowerCase() || ".jpg";
+    const mimeType = file.type || "image/jpeg";
+    const isDocument = bucket === "documents" || mimeType === "application/pdf";
+
+    // Reject executable / script files
+    const forbiddenExts = [".exe", ".bat", ".sh", ".php", ".js", ".html", ".py", ".pl"];
+    if (forbiddenExts.includes(ext)) {
       logApiResponse(req, 400, startTime);
-      return NextResponse.json(
-        { message: "Invalid file type. Only JPG, PNG, WEBP, GIF, AVIF, and SVG images are allowed." },
-        { status: 400 }
-      );
+      return NextResponse.json({ message: "Executable and script files are strictly forbidden." }, { status: 400 });
     }
 
-    // Validate size (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      logApiResponse(req, 400, startTime);
-      return NextResponse.json(
-        { message: "File size too large. Maximum 10MB allowed." },
-        { status: 400 }
-      );
+    // Validate MIME types & size limits
+    if (isDocument) {
+      if (!ALLOWED_DOCUMENT_TYPES.includes(mimeType) && ext !== ".pdf") {
+        logApiResponse(req, 400, startTime);
+        return NextResponse.json({ message: "Invalid document type. Only PDF documents are allowed." }, { status: 400 });
+      }
+      if (file.size > MAX_DOCUMENT_SIZE_BYTES) {
+        logApiResponse(req, 400, startTime);
+        return NextResponse.json({ message: "Document size too large. Maximum 20MB allowed." }, { status: 400 });
+      }
+    } else {
+      if (!ALLOWED_IMAGE_TYPES.includes(mimeType)) {
+        logApiResponse(req, 400, startTime);
+        return NextResponse.json(
+          { message: "Invalid file type. Only JPG, PNG, WEBP, GIF, AVIF, and SVG images are allowed." },
+          { status: 400 }
+        );
+      }
+      if (file.size > MAX_IMAGE_SIZE_BYTES) {
+        logApiResponse(req, 400, startTime);
+        return NextResponse.json({ message: "Image size too large. Maximum 10MB allowed." }, { status: 400 });
+      }
     }
 
-    // Prepare upload directory
-    const uploadsDir = path.join(process.cwd(), "public", "uploads");
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
-    }
+    // Prepare clean unique filename
+    const cleanBaseName = path.basename(file.name, ext).toLowerCase().replace(/[^a-z0-9]/g, "-");
+    const uniqueFileName = `${cleanBaseName}_${Date.now()}${ext}`;
 
-    // Generate unique filename
-    const ext = path.extname(file.name) || ".jpg";
-    const cleanName = path.basename(file.name, ext).toLowerCase().replace(/[^a-z0-9]/g, "-");
-    const filename = `prod_${Date.now()}_${cleanName}${ext}`;
-    const filePath = path.join(uploadsDir, filename);
+    const arrayBuffer = await file.arrayBuffer();
+    const fileBuffer = Buffer.from(arrayBuffer);
 
-    // Save file to disk
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    await fs.promises.writeFile(filePath, buffer);
+    // Upload to Supabase Storage Bucket
+    const { storageKey, publicUrl } = await uploadFileToStorage({
+      fileBuffer,
+      fileName: uniqueFileName,
+      contentType: mimeType,
+      bucket,
+    });
 
-    const publicUrl = `/uploads/${filename}`;
+    // Create Prisma Media record
+    const media = await prisma.media.create({
+      data: {
+        url: publicUrl,
+        storageKey: storageKey,
+        fileName: file.name,
+        mimeType: mimeType,
+        fileSize: file.size,
+        type: isDocument ? "DOCUMENT" : "IMAGE",
+      },
+    });
 
     logApiResponse(req, 201, startTime);
     return NextResponse.json(
-      { message: "Image uploaded successfully", url: publicUrl },
+      {
+        message: "File uploaded successfully to Supabase Storage",
+        url: publicUrl,
+        media,
+      },
       { status: 201 }
     );
   } catch (err) {

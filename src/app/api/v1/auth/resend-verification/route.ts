@@ -1,0 +1,65 @@
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import prisma from "@/lib/db";
+import { generateRandomToken, hashToken } from "@/lib/auth";
+import { withSecurity, logApiResponse } from "@/lib/middleware";
+import { AUTH_RATE_LIMIT } from "@/lib/rateLimit";
+
+const ResendSchema = z.object({
+  email: z.string().email("Invalid email").max(200),
+});
+
+export async function POST(req: NextRequest) {
+  const startTime = Date.now();
+
+  const securityError = withSecurity(req, {
+    ...AUTH_RATE_LIMIT,
+    limit: 3,
+    prefix: "resend-verify",
+  });
+  if (securityError) return securityError;
+
+  try {
+    const body = await req.json();
+    const parsed = ResendSchema.safeParse(body);
+
+    if (!parsed.success) {
+      logApiResponse(req, 400, startTime);
+      return NextResponse.json(
+        { message: parsed.error.issues[0].message },
+        { status: 400 }
+      );
+    }
+
+    const { email } = parsed.data;
+
+    const user = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
+    });
+
+    if (user && !user.isEmailVerified) {
+      const verifyToken = generateRandomToken();
+      const tokenHash = hashToken(verifyToken);
+
+      await prisma.emailVerificationToken.create({
+        data: {
+          userId: user.id,
+          tokenHash,
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+        },
+      });
+
+      console.log(`📧 [Verification Email] Sent to ${user.email} with token: ${verifyToken}`);
+    }
+
+    logApiResponse(req, 200, startTime);
+    return NextResponse.json({
+      message: "If an unverified account exists with that email, a verification link has been resent.",
+    });
+  } catch (err) {
+    const { logError } = await import("@/lib/logger");
+    logError("auth/resend-verification", err);
+    logApiResponse(req, 500, startTime);
+    return NextResponse.json({ message: "Internal server error" }, { status: 500 });
+  }
+}

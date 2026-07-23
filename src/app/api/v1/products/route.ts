@@ -1,19 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import getDb from "@/lib/db";
+import prisma from "@/lib/db";
 import { requireAdmin, withSecurity, logApiResponse } from "@/lib/middleware";
 import { GENERAL_RATE_LIMIT } from "@/lib/rateLimit";
 import { sanitizeObject } from "@/lib/sanitize";
-
-function parseProduct(row: Record<string, unknown>) {
-  return {
-    ...row,
-    images: JSON.parse((row.images as string) || "[]"),
-    features: JSON.parse((row.features as string) || "[]"),
-    specifications: JSON.parse((row.specifications as string) || "{}"),
-    related_products: JSON.parse((row.related_products as string) || "[]"),
-  };
-}
 
 const ProductSchema = z.object({
   name: z.string().min(1, "Name is required").max(200),
@@ -29,50 +19,200 @@ const ProductSchema = z.object({
   finish: z.string().optional().default(""),
   bulbs: z.string().optional().default(""),
   stock: z.number().min(0).optional().default(0),
-  images: z.array(z.string().url()).optional().default([]),
-  features: z.array(z.string().max(300)).optional().default([]),
+  images: z.array(z.string()).optional().default([]),
+  features: z.array(z.string()).optional().default([]),
   specifications: z.record(z.string(), z.string()).optional().default({}),
   related_products: z.array(z.string()).optional().default([]),
 });
 
-// GET all products — public, general rate limit
+// GET /api/v1/products — Public High-Performance Product Listing with Search, Filters, Sorting, and Pagination
 export async function GET(req: NextRequest) {
   const startTime = Date.now();
   const securityError = withSecurity(req, GENERAL_RATE_LIMIT);
   if (securityError) return securityError;
 
   try {
-    const db = getDb();
     const { searchParams } = new URL(req.url);
 
+    // 1. Pagination parameters
+    const page = Math.max(parseInt(searchParams.get("page") || "1"), 1);
+    const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "20"), 1), 100);
+    const skip = (page - 1) * limit;
+
+    // 2. Query & Search parameters
+    const search = searchParams.get("q") || searchParams.get("search") || "";
     const category = searchParams.get("category");
-    const search = searchParams.get("search");
-    const limit = Math.min(parseInt(searchParams.get("limit") || "100"), 100);
-    const offset = Math.max(parseInt(searchParams.get("offset") || "0"), 0);
+    const brand = searchParams.get("brand");
+    const minPrice = searchParams.get("minPrice") ? parseFloat(searchParams.get("minPrice")!) : null;
+    const maxPrice = searchParams.get("maxPrice") ? parseFloat(searchParams.get("maxPrice")!) : null;
+    const inStock = searchParams.get("inStock");
+    const isFeatured = searchParams.get("isFeatured") || searchParams.get("featured");
+    const rating = searchParams.get("rating") ? parseFloat(searchParams.get("rating")!) : null;
+    const sort = searchParams.get("sort") || "newest";
 
-    let query = "SELECT * FROM products WHERE is_active = 1";
-    const params: (string | number)[] = [];
+    // 3. Build Prisma Where Clause
+    const whereClause: Record<string, unknown> = { isActive: true };
 
-    if (category && category !== "All" && category.length < 100) {
-      query += " AND category = ?";
-      params.push(category);
+    if (category && category !== "All") {
+      whereClause.category = {
+        OR: [
+          { slug: { equals: category.toLowerCase() } },
+          { name: { equals: category, mode: "insensitive" } },
+        ],
+      };
     }
 
-    if (search && search.length < 100) {
-      // Safe search — use LIKE with prepared statement (no SQL injection)
-      query += " AND (name LIKE ? OR description LIKE ?)";
-      const safeSearch = `%${search.replace(/[%_]/g, "\\$&")}%`;
-      params.push(safeSearch, safeSearch);
+    if (brand && brand !== "All") {
+      whereClause.brand = {
+        OR: [
+          { slug: { equals: brand.toLowerCase() } },
+          { name: { equals: brand, mode: "insensitive" } },
+        ],
+      };
     }
 
-    query += " ORDER BY created_at DESC LIMIT ? OFFSET ?";
-    params.push(limit, offset);
+    if (minPrice !== null || maxPrice !== null) {
+      const priceFilter: Record<string, number> = {};
+      if (minPrice !== null) priceFilter.gte = Math.round(minPrice * 100);
+      if (maxPrice !== null) priceFilter.lte = Math.round(maxPrice * 100);
+      whereClause.basePrice = priceFilter;
+    }
 
-    const products = db.prepare(query).all(...params) as Record<string, unknown>[];
-    const parsed = products.map(parseProduct);
+    if (isFeatured === "true" || isFeatured === "1") {
+      whereClause.isFeatured = true;
+    }
+
+    if (rating !== null) {
+      whereClause.rating = { gte: rating };
+    }
+
+    if (search) {
+      whereClause.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        { description: { contains: search, mode: "insensitive" } },
+        { category: { name: { contains: search, mode: "insensitive" } } },
+        { brand: { name: { contains: search, mode: "insensitive" } } },
+        { variants: { some: { sku: { contains: search, mode: "insensitive" } } } },
+      ];
+    }
+
+    if (inStock === "true") {
+      whereClause.variants = {
+        some: {
+          inventory: {
+            quantity: { gt: 0 },
+          },
+        },
+      };
+    }
+
+    // 4. Build Prisma Sort Clause
+    let orderBy: Record<string, "asc" | "desc"> = { createdAt: "desc" };
+    switch (sort) {
+      case "oldest":
+        orderBy = { createdAt: "asc" };
+        break;
+      case "price-low":
+      case "price-asc":
+        orderBy = { basePrice: "asc" };
+        break;
+      case "price-high":
+      case "price-desc":
+        orderBy = { basePrice: "desc" };
+        break;
+      case "name-asc":
+        orderBy = { name: "asc" };
+        break;
+      case "name-desc":
+        orderBy = { name: "desc" };
+        break;
+      case "rating":
+      case "highest-rated":
+        orderBy = { rating: "desc" };
+        break;
+      case "popular":
+      case "featured":
+        orderBy = { isFeatured: "desc" };
+        break;
+      default:
+        orderBy = { createdAt: "desc" };
+    }
+
+    // 5. Execute Optimized Query & Count
+    const [products, total] = await Promise.all([
+      prisma.product.findMany({
+        where: whereClause,
+        include: {
+          category: { select: { id: true, name: true, slug: true } },
+          brand: { select: { id: true, name: true, slug: true, logoUrl: true } },
+          specifications: { select: { key: true, value: true } },
+          images: {
+            include: { media: { select: { url: true } } },
+            orderBy: { sortOrder: "asc" },
+          },
+          variants: {
+            include: {
+              inventory: { select: { quantity: true, reserved: true } },
+            },
+          },
+        },
+        orderBy,
+        take: limit,
+        skip,
+      }),
+      prisma.product.count({ where: whereClause }),
+    ]);
+
+    // 6. Format Product Response Schema
+    const formattedProducts = products.map((p) => {
+      const specsObj: Record<string, string> = {};
+      p.specifications.forEach((s) => {
+        specsObj[s.key] = s.value;
+      });
+
+      const defaultVariant = p.variants.find((v) => v.isDefault) || p.variants[0];
+      const stock = defaultVariant?.inventory ? Math.max(0, defaultVariant.inventory.quantity - defaultVariant.inventory.reserved) : 10;
+      const imagesList = p.images.map((img) => img.media?.url || "").filter(Boolean);
+
+      return {
+        id: p.id,
+        name: p.name,
+        slug: p.slug,
+        description: p.description,
+        category: p.category?.name || "Chandelier",
+        categorySlug: p.category?.slug || "",
+        brand: p.brand?.name || null,
+        brandSlug: p.brand?.slug || null,
+        brandLogo: p.brand?.logoUrl || null,
+        price: Math.round(p.basePrice / 100),
+        compare_at_price: Math.round((p.compareAtPrice || 0) / 100),
+        discount: p.discount,
+        rating: p.rating,
+        isFeatured: p.isFeatured,
+        dimensions: specsObj["Dimensions"] || "",
+        material: specsObj["Material"] || "",
+        finish: specsObj["Finish"] || "",
+        bulbs: specsObj["Bulbs"] || "",
+        stock,
+        inStock: stock > 0,
+        images: imagesList,
+        primaryImage: imagesList[0] || "",
+        features: [],
+        specifications: specsObj,
+        related_products: [],
+      };
+    });
 
     logApiResponse(req, 200, startTime);
-    return NextResponse.json({ products: parsed, total: parsed.length });
+    return NextResponse.json({
+      products: formattedProducts,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
   } catch (err) {
     const { logError } = await import("@/lib/logger");
     logError("products/GET", err);
@@ -81,7 +221,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST create product — admin only
+// POST /api/v1/products — Admin product creation
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
   const authResult = requireAdmin(req);
@@ -104,9 +244,11 @@ export async function POST(req: NextRequest) {
     }
 
     const data = parsed.data;
-    const db = getDb();
 
-    const existing = db.prepare("SELECT id FROM products WHERE slug = ?").get(data.slug);
+    const existing = await prisma.product.findUnique({
+      where: { slug: data.slug },
+    });
+
     if (existing) {
       logApiResponse(req, 409, startTime);
       return NextResponse.json(
@@ -115,24 +257,46 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const result = db
-      .prepare(
-        `INSERT INTO products (name, slug, description, category, price, compare_at_price, discount, rating, dimensions, material, finish, bulbs, stock, images, features, specifications, related_products)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      )
-      .run(
-        data.name, data.slug, data.description, data.category,
-        data.price, data.compare_at_price, data.discount, data.rating,
-        data.dimensions, data.material, data.finish, data.bulbs, data.stock,
-        JSON.stringify(data.images), JSON.stringify(data.features),
-        JSON.stringify(data.specifications), JSON.stringify(data.related_products)
-      );
+    let category = await prisma.category.findFirst({
+      where: { name: { equals: data.category, mode: "insensitive" } },
+    });
 
-    const newProduct = db.prepare("SELECT * FROM products WHERE id = ?").get(result.lastInsertRowid) as Record<string, unknown>;
+    if (!category) {
+      const slug = data.category.toLowerCase().replace(/[^a-z0-9]/g, "-");
+      category = await prisma.category.create({
+        data: { name: data.category, slug },
+      });
+    }
+
+    const newProduct = await prisma.product.create({
+      data: {
+        name: data.name,
+        slug: data.slug,
+        description: data.description,
+        basePrice: Math.round(data.price * 100),
+        compareAtPrice: Math.round(data.compare_at_price * 100),
+        discount: data.discount,
+        rating: data.rating,
+        categoryId: category.id,
+        variants: {
+          create: {
+            sku: `SKU-${data.slug.toUpperCase()}`,
+            combinationSignature: "default",
+            price: Math.round(data.price * 100),
+            isDefault: true,
+            inventory: {
+              create: {
+                quantity: data.stock,
+              },
+            },
+          },
+        },
+      },
+    });
 
     logApiResponse(req, 201, startTime);
     return NextResponse.json(
-      { message: "Product created successfully", product: parseProduct(newProduct) },
+      { message: "Product created successfully", product: newProduct },
       { status: 201 }
     );
   } catch (err) {

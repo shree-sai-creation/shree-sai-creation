@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import getDb from "@/lib/db";
+import prisma from "@/lib/db";
 import { requireAuth, withSecurity, logApiResponse } from "@/lib/middleware";
 import { GENERAL_RATE_LIMIT } from "@/lib/rateLimit";
 
-// GET user's own orders — authenticated
 export async function GET(req: NextRequest) {
   const startTime = Date.now();
   const securityError = withSecurity(req, GENERAL_RATE_LIMIT);
@@ -17,22 +16,16 @@ export async function GET(req: NextRequest) {
 
   try {
     const { user } = authResult;
-    const db = getDb();
 
-    // Fetch orders
-    const orders = db
-      .prepare("SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC LIMIT 50")
-      .all(user.id) as Array<Record<string, unknown>>;
-
-    // Fetch items for each order
-    const getItems = db.prepare("SELECT * FROM order_items WHERE order_id = ?");
-    const ordersWithItems = orders.map((order) => ({
-      ...order,
-      items: getItems.all(order.id),
-    }));
+    const orders = await prisma.order.findMany({
+      where: { userId: String(user.id) },
+      include: { items: true },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    });
 
     logApiResponse(req, 200, startTime);
-    return NextResponse.json({ orders: ordersWithItems });
+    return NextResponse.json({ orders });
   } catch (err) {
     const { logError } = await import("@/lib/logger");
     logError("orders/GET", err);
