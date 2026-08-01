@@ -1,6 +1,6 @@
 import { PrismaClient, Role } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import { PRODUCTS } from "../src/data/products";
+const { PRODUCTS } = require("../src/data/products.ts");
 
 const prisma = new PrismaClient();
 
