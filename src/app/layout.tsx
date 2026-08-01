@@ -25,19 +25,24 @@ export const metadata: Metadata = {
   title: "Shree Sai Creation | Premium Luxury Lighting & Chandeliers",
   description:
     "Explore Shree Sai Creation's curated collection of hand-blown crystal chandeliers, Spanish alabaster sconces, and sculptural brass pendants designed for high-end international residences.",
+  icons: {
+    icon: "/icon.png",
+    shortcut: "/favicon.ico",
+    apple: "/apple-icon.png",
+  },
   openGraph: {
     title: "Shree Sai Creation | Premium Luxury Lighting",
     description: "Handcrafted luxury chandeliers and architectural lighting statement pieces.",
-    url: "https://shreesaicreation.com",
+    url: "https://shreesaicreation.com.au",
     siteName: "Shree Sai Creation",
     images: [
       {
-        url: "https://images.unsplash.com/photo-1540932239986-30128078f3c5?q=80&w=800",
+        url: "/logo.png",
         width: 1200,
         height: 630,
       },
     ],
-    locale: "en_US",
+    locale: "en_AU",
     type: "website",
   },
 };

@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { ShoppingCart, Heart, Search, Menu, X, Trash2, Plus, Minus, ArrowRight, ArrowLeft, User, ChevronDown, LogOut, Package, Settings, CreditCard, Compass, Sun, Moon } from "lucide-react";
+import { ShoppingCart, Heart, Search, Menu, X, Trash2, Plus, Minus, ArrowRight, ArrowLeft, User, ChevronDown, LogOut, Package, Settings, CreditCard, Compass, Sun, Moon, LayoutDashboard } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { PRODUCTS, Product } from "@/data/products";
 import { Logo } from "@/components/common/Logo";
@@ -14,12 +14,12 @@ import { getStoredProducts, mapBackendProductToFrontend } from "@/utils/db";
 
 // ─── Category previews for mega menu ─────────────────────────
 const MEGA_CATEGORIES = [
-  { name: "Chandelier", count: 24, img: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=300&q=80", slug: "Chandelier" },
-  { name: "Indoor wall lamps", count: 20, img: "https://images.unsplash.com/photo-1565538810643-b5bdb714032a?w=300&q=80", slug: "Indoor wall lamps" },
-  { name: "Linear lights", count: 12, img: "https://images.unsplash.com/photo-1513506003901-1e6a229e9d15?w=300&q=80", slug: "Linear lights" },
-  { name: "Ceiling lights", count: 16, img: "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=300&q=80", slug: "Ceiling lights" },
-  { name: "Internal pendant lights", count: 18, img: "https://images.unsplash.com/photo-1524484485831-a92ffc0de03f?w=300&q=80", slug: "Internal pendant lights" },
-  { name: "Outdoor wall lamps", count: 14, img: "https://images.unsplash.com/photo-1581428982868-e410dd187a90?w=300&q=80", slug: "Outdoor wall lamps" },
+  { name: "Chandelier", count: 24, img: "/Categories/Chandiler.PNG", slug: "Chandelier" },
+  { name: "Indoor wall lamps", count: 20, img: "/Categories/Indoor wall lamp.PNG", slug: "Indoor wall lamps" },
+  { name: "Linear lights", count: 12, img: "/Categories/linear-lights.webp", slug: "Linear lights" },
+  { name: "Ceiling lights", count: 16, img: "/Categories/ceiling-lights.PNG", slug: "Ceiling lights" },
+  { name: "Internal pendant lights", count: 18, img: "/Categories/internal-pendant-lights.PNG", slug: "Internal pendant lights" },
+  { name: "Outdoor wall lamps", count: 14, img: "/Categories/Outdoor lamp.PNG", slug: "Outdoor wall lamps" },
 ];
 
 export const Header: React.FC = () => {
@@ -32,6 +32,7 @@ export const Header: React.FC = () => {
   } = useCart();
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMobileShopOpen, setIsMobileShopOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [hoveredNav, setHoveredNav] = useState<string | null>(null);
@@ -87,6 +88,7 @@ export const Header: React.FC = () => {
   // Close menus on route change
   useEffect(() => {
     setIsMobileMenuOpen(false);
+    setIsMobileShopOpen(false);
     setIsSearchOpen(false);
     setIsProfileOpen(false);
   }, [pathname]);
@@ -101,7 +103,6 @@ export const Header: React.FC = () => {
   const navLinks = [
     { name: "Home", href: "/" },
     { name: "Shop", href: "/shop", hasMega: true },
-    { name: "Collections", href: "/collections" },
     { name: "About Us", href: "/about" },
     { name: "Contact", href: "/contact" },
   ];
@@ -179,199 +180,329 @@ export const Header: React.FC = () => {
         }`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-[85px]">
-
-            {/* Mobile Menu Toggle */}
-            {pathname !== "/admin" && (
-              <button
-                onClick={() => setIsMobileMenuOpen(true)}
-                className={`md:hidden p-1.5 transition-colors ${
-                  theme === "dark" ? "text-white/60 hover:text-white" : "text-black/60 hover:text-black"
-                }`}
-                aria-label="Open menu"
-              >
-                <Menu size={20} />
-              </button>
-            )}
-
-            {/* ─── Logo ─── */}
-            <Link href="/" className="flex items-center select-none group py-1.5 shrink-0">
-              <Logo iconSize={32} />
-            </Link>
-
-            {/* ─── Desktop Navigation ─── */}
-            {pathname !== "/admin" ? (
-              <nav className="hidden md:flex items-center h-full mx-6" onMouseLeave={() => setHoveredNav(null)}>
-                {navLinks.map(link => (
-                  <div key={link.name} className="relative h-full flex items-center">
-                    <Link
-                      href={link.href}
-                      onMouseEnter={() => link.hasMega ? setHoveredNav("shop") : setHoveredNav(null)}
-                      className={`px-4 lg:px-5 h-full flex items-center text-[10px] tracking-[0.25em] uppercase font-semibold transition-colors duration-200 group ${
-                        pathname === link.href
-                          ? "text-[#C9A96E]"
-                          : theme === "dark"
-                            ? "text-white/70 hover:text-white"
-                            : "text-black/70 hover:text-black"
-                      }`}
-                    >
-                      <span className="relative py-1">
-                        {link.name}
-                        {/* Active underline */}
-                        <span className={`absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#C9A96E] transition-transform duration-300 origin-left ${
-                          pathname === link.href ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100"
-                        }`} />
-                      </span>
-                      {link.hasMega && <ChevronDown size={10} className="ml-1 opacity-50" />}
-                    </Link>
-                  </div>
-                ))}
-              </nav>
-            ) : (
-              <nav className="hidden md:flex items-center h-full mx-6">
-                <Link
-                  href="/"
-                  className={`flex items-center gap-2 px-6 py-2.5 rounded-full border text-[9px] tracking-[0.25em] uppercase font-semibold transition-all duration-300 ${
-                    theme === "dark" 
-                      ? "border-white/20 text-white/80 hover:bg-white hover:text-black hover:scale-105" 
-                      : "border-black/20 text-black/80 hover:bg-black hover:text-white hover:scale-105"
-                  }`}
+          <div className="flex items-center justify-between h-[85px] relative">
+            <AnimatePresence mode="wait">
+              {isSearchOpen ? (
+                <motion.div
+                  key="inline-header-search"
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.2 }}
+                  className="w-full flex items-center justify-between gap-3 h-full relative"
                 >
-                  <ArrowLeft size={12} />
-                  Back to Site
-                </Link>
-              </nav>
-            )}
-
-            {/* ─── Right Actions ─── */}
-            <div className={`flex items-center gap-1.5 ${theme === "dark" ? "text-white" : "text-black"}`}>
-
-              {/* Search */}
-              {pathname !== "/admin" && (
-                <div className="relative flex items-center">
-                  <div 
-                    className={`flex items-center overflow-hidden transition-all duration-300 ease-out ${
-                      isSearchOpen ? 'w-48 opacity-100 mr-2 border-b' : 'w-0 opacity-0 border-transparent'
-                    } ${theme === "dark" ? "border-white/30" : "border-black/30"}`}
-                  >
+                  <div className="relative flex-1 flex items-center">
+                    <Search size={16} className="absolute left-4 text-[#C9A96E] shrink-0" />
                     <input
                       ref={searchRef}
                       type="text"
                       value={searchQuery}
-                      onChange={e => setSearchQuery(e.target.value)}
-                      placeholder="Search..."
-                      className={`w-full bg-transparent text-[10px] tracking-wider outline-none py-1.5 placeholder:opacity-50 ${
-                        theme === "dark" ? "text-white" : "text-black"
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && searchQuery.trim()) {
+                          router.push(`/shop?search=${encodeURIComponent(searchQuery.trim())}`);
+                          setIsSearchOpen(false);
+                        } else if (e.key === "Escape") {
+                          setIsSearchOpen(false);
+                          setSearchQuery("");
+                        }
+                      }}
+                      placeholder="Search chandeliers, wall lamps, pendants..."
+                      className={`w-full pl-11 pr-10 py-2.5 rounded-full border text-xs tracking-wider transition-all outline-none ${
+                        theme === "dark"
+                          ? "bg-[#141414] border-white/15 text-white placeholder-white/40 focus:border-[#C9A96E]"
+                          : "bg-white border-black/15 text-black placeholder-black/40 focus:border-[#C9A96E]"
                       }`}
                     />
                     {searchQuery && (
-                      <button onClick={() => setSearchQuery("")} className="ml-1 p-1 opacity-50 hover:opacity-100">
-                        <X size={10} />
+                      <button
+                        onClick={() => setSearchQuery("")}
+                        className={`absolute right-3.5 p-1 transition-colors ${
+                          theme === "dark" ? "text-white/40 hover:text-white" : "text-black/40 hover:text-black"
+                        }`}
+                      >
+                        <X size={14} />
                       </button>
                     )}
                   </div>
+
                   <button
                     onClick={() => {
-                      if (isSearchOpen && !searchQuery) {
-                        setIsSearchOpen(false);
-                      } else {
-                        setIsSearchOpen(true);
-                      }
+                      setIsSearchOpen(false);
+                      setSearchQuery("");
                     }}
-                    className="p-2 opacity-60 hover:opacity-100 hover:text-[#C9A96E] transition-all duration-200"
-                    aria-label="Search"
+                    className={`p-2 rounded-full transition-colors shrink-0 ${
+                      theme === "dark" ? "text-white/60 hover:text-white" : "text-black/60 hover:text-black"
+                    }`}
+                    aria-label="Close Search"
                   >
-                    <Search size={16} />
+                    <X size={18} />
                   </button>
 
-                  {/* Inline Search Results Dropdown */}
-                  <AnimatePresence>
-                    {isSearchOpen && searchQuery && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 8, scale: 0.97 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 8, scale: 0.97 }}
-                        transition={{ duration: 0.2 }}
-                        className={`absolute right-0 top-full mt-3 w-72 border shadow-2xl z-50 rounded-xl overflow-hidden max-h-96 overflow-y-auto ${
-                          theme === "dark" 
-                            ? "bg-[#0d0d0d] border-white/10 text-white shadow-black/80" 
-                            : "bg-white border-black/10 text-black shadow-black/5"
-                        }`}
-                      >
-                        {searchResults.length > 0 ? (
-                          <div className="p-2 space-y-1">
-                            {searchResults.map(p => (
+                  {/* Dropdown Popup: Most Searched when empty, Live Search Results when typing */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 8 }}
+                    transition={{ duration: 0.2 }}
+                    className={`absolute top-full left-0 right-0 mt-2 border shadow-2xl rounded-2xl overflow-hidden z-50 ${
+                      theme === "dark"
+                        ? "bg-[#0d0d0d] border-white/10 text-white shadow-black/80"
+                        : "bg-white border-black/10 text-black shadow-black/10"
+                    }`}
+                  >
+                    {!searchQuery.trim() ? (
+                      /* Most Searched Popup */
+                      <div className="p-4 space-y-4 max-h-[420px] overflow-y-auto">
+                        {/* Most Searched Tag Chips */}
+                        <div>
+                          <div className="flex items-center gap-2 mb-2.5">
+                            <Compass size={13} className="text-[#C9A96E]" />
+                            <span className="text-[9px] uppercase tracking-[0.2em] font-bold text-[#C9A96E]">
+                              Most Searched Keywords
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {[
+                              "Chandelier",
+                              "Indoor wall lamps",
+                              "Linear lights",
+                              "Ceiling lights",
+                              "Internal pendant lights",
+                              "Outdoor wall lamps",
+                              "Crystal",
+                              "Brass"
+                            ].map((tag) => (
+                              <button
+                                key={tag}
+                                onClick={() => setSearchQuery(tag)}
+                                className={`text-[10px] px-3 py-1.5 rounded-full border transition-all cursor-pointer ${
+                                  theme === "dark"
+                                    ? "bg-white/5 border-white/10 text-white/80 hover:border-[#C9A96E] hover:text-[#C9A96E] hover:bg-[#C9A96E]/10"
+                                    : "bg-black/5 border-black/10 text-black/80 hover:border-[#C9A96E] hover:text-[#C9A96E] hover:bg-[#C9A96E]/10"
+                                }`}
+                              >
+                                {tag}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Trending / Popular Products Section */}
+                        <div className="pt-3 border-t border-white/5">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-[9px] uppercase tracking-[0.2em] font-bold text-[#C9A96E]">
+                              Trending Fixtures
+                            </span>
+                            <span className={`text-[8px] uppercase tracking-wider font-semibold ${theme === "dark" ? "text-white/40" : "text-black/40"}`}>
+                              Popular Items
+                            </span>
+                          </div>
+                          <div className="divide-y divide-white/5">
+                            {products.slice(0, 4).map((prod) => (
                               <Link
-                                key={p.id}
-                                href={`/shop/${p.slug}`}
-                                onClick={() => { setIsSearchOpen(false); setSearchQuery(""); }}
-                                className={`flex items-center gap-3 p-2 rounded-md transition-colors group ${
+                                key={prod.id}
+                                href={`/shop/${prod.slug}`}
+                                onClick={() => {
+                                  setIsSearchOpen(false);
+                                  setSearchQuery("");
+                                }}
+                                className={`flex items-center gap-3.5 py-2.5 px-2 rounded-lg transition-colors ${
                                   theme === "dark" ? "hover:bg-white/5" : "hover:bg-black/5"
                                 }`}
                               >
-                                <img src={p.images[0]} alt={p.name} className="w-10 h-10 object-cover rounded opacity-80 group-hover:opacity-100" />
-                                <div className="min-w-0">
-                                  <p className="text-[11px] font-bold truncate group-hover:text-[#C9A96E] transition-colors">{p.name}</p>
-                                  <p className={`text-[9px] ${theme === "dark" ? "text-white/40" : "text-black/40"}`}>{p.category} · {formatPrice(p.price)}</p>
+                                <img
+                                  src={prod.images?.[0] || prod.image || "/logo.png"}
+                                  alt={prod.name}
+                                  className="w-9 h-9 object-cover rounded-lg border border-white/10 shrink-0 bg-neutral-900"
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-[11px] font-medium truncate">{prod.name}</p>
+                                  <p className={`text-[9px] truncate ${theme === "dark" ? "text-white/40" : "text-black/40"}`}>
+                                    {prod.category}
+                                  </p>
                                 </div>
+                                <span className="text-xs font-serif text-[#C9A96E] font-semibold shrink-0">
+                                  {formatPrice(prod.price)}
+                                </span>
                               </Link>
                             ))}
                           </div>
+                        </div>
+                      </div>
+                    ) : (
+                      /* Live Search Results Popup */
+                      <div className="divide-y divide-white/5 max-h-[380px] overflow-y-auto">
+                        <div className="p-3 bg-[#C9A96E]/10 border-b border-[#C9A96E]/20 flex items-center justify-between text-[9px] uppercase tracking-widest text-[#C9A96E] font-bold">
+                          <span>{searchResults.length} Products Found</span>
+                          <span>Click item to view</span>
+                        </div>
+                        {searchResults.length > 0 ? (
+                          <>
+                            {searchResults.map((prod) => (
+                              <Link
+                                key={prod.id}
+                                href={`/shop/${prod.slug}`}
+                                onClick={() => {
+                                  setIsSearchOpen(false);
+                                  setSearchQuery("");
+                                }}
+                                className={`flex items-center gap-3.5 p-3 transition-colors ${
+                                  theme === "dark" ? "hover:bg-white/5" : "hover:bg-black/5"
+                                }`}
+                              >
+                                <img
+                                  src={prod.images?.[0] || prod.image || "/logo.png"}
+                                  alt={prod.name}
+                                  className="w-10 h-10 object-cover rounded-lg border border-white/10 shrink-0 bg-neutral-900"
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-[11px] font-medium truncate">{prod.name}</p>
+                                  <p className={`text-[9px] truncate ${theme === "dark" ? "text-white/40" : "text-black/40"}`}>
+                                    {prod.category}
+                                  </p>
+                                </div>
+                                <span className="text-xs font-serif text-[#C9A96E] font-semibold shrink-0">
+                                  {formatPrice(prod.price)}
+                                </span>
+                              </Link>
+                            ))}
+                            <button
+                              onClick={() => {
+                                router.push(`/shop?search=${encodeURIComponent(searchQuery.trim())}`);
+                                setIsSearchOpen(false);
+                              }}
+                              className="w-full py-3 text-center text-[10px] uppercase tracking-widest text-[#C9A96E] hover:bg-[#C9A96E]/10 transition-colors font-bold flex items-center justify-center gap-2"
+                            >
+                              View All Search Results for "{searchQuery}" <ArrowRight size={12} />
+                            </button>
+                          </>
                         ) : (
-                          <div className="p-4 text-center">
-                            <p className={`text-[10px] tracking-wider uppercase ${theme === "dark" ? "text-white/40" : "text-black/40"}`}>
-                              No results for &quot;{searchQuery}&quot;
-                            </p>
+                          <div className="p-6 text-center text-xs text-white/50">
+                            No products found matching "{searchQuery}"
                           </div>
                         )}
-                      </motion.div>
+                      </div>
                     )}
-                  </AnimatePresence>
-                </div>
-              )}
+                  </motion.div>
+                </motion.div>
+              ) : (
+                <motion.div key="normal-header" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full flex items-center justify-between h-full">
+                  {/* ─── Logo ─── */}
+                  <Link href="/" className="flex items-center select-none group py-1.5 shrink-0">
+                    <Logo iconSize={32} />
+                  </Link>
 
-              {/* Theme Toggle */}
-              <button
-                onClick={toggleTheme}
-                className="p-2 opacity-60 hover:opacity-100 hover:text-[#C9A96E] transition-all duration-200 cursor-pointer"
-                aria-label="Toggle theme"
-              >
-                {theme === "dark" ? (
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
-                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-                    <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
-                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-                  </svg>
-                ) : (
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-                  </svg>
-                )}
-              </button>
-
-              {/* Cart */}
-              {pathname !== "/admin" && (
-                <button
-                  onClick={() => setIsCartOpen(true)}
-                  className="relative p-2 opacity-60 hover:opacity-100 hover:text-[#C9A96E] transition-all duration-200"
-                  aria-label="Cart"
-                >
-                  <ShoppingCart size={16} />
-                  {totalCartItems > 0 && (
-                    <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-[#C9A96E] text-[7.5px] text-black font-bold flex items-center justify-center rounded-full">
-                      {totalCartItems}
-                    </span>
+                  {/* ─── Desktop Navigation ─── */}
+                  {pathname !== "/admin" ? (
+                    <nav className="hidden md:flex items-center h-full mx-6" onMouseLeave={() => setHoveredNav(null)}>
+                      {navLinks.map(link => (
+                        <div key={link.name} className="relative h-full flex items-center">
+                          <Link
+                            href={link.href}
+                            onMouseEnter={() => link.hasMega ? setHoveredNav("shop") : setHoveredNav(null)}
+                            className={`px-4 lg:px-5 h-full flex items-center text-[10px] tracking-[0.25em] uppercase font-semibold transition-colors duration-200 group ${
+                              pathname === link.href
+                                ? "text-[#C9A96E]"
+                                : theme === "dark"
+                                  ? "text-white/70 hover:text-white"
+                                  : "text-black/70 hover:text-black"
+                            }`}
+                          >
+                            <span className="relative py-1">
+                              {link.name}
+                              {/* Active underline */}
+                              <span className={`absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#C9A96E] transition-transform duration-300 origin-left ${
+                                pathname === link.href ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100"
+                              }`} />
+                            </span>
+                            {link.hasMega && <ChevronDown size={10} className="ml-1 opacity-50" />}
+                          </Link>
+                        </div>
+                      ))}
+                    </nav>
+                  ) : (
+                    <nav className="hidden md:flex items-center h-full mx-6">
+                      <Link
+                        href="/"
+                        className={`flex items-center gap-2 px-6 py-2.5 rounded-full border text-[9px] tracking-[0.25em] uppercase font-semibold transition-all duration-300 ${
+                          theme === "dark" 
+                            ? "border-white/20 text-white/80 hover:bg-white hover:text-black hover:scale-105" 
+                            : "border-black/20 text-black/80 hover:bg-black hover:text-white hover:scale-105"
+                        }`}
+                      >
+                        <ArrowLeft size={12} />
+                        Back to Site
+                      </Link>
+                    </nav>
                   )}
-                </button>
-              )}
 
-              {/* Profile */}
-              <div className="relative">
+                  {/* ─── Right Actions ─── */}
+                  <div className={`flex items-center gap-1.5 ${theme === "dark" ? "text-white" : "text-black"}`}>
+
+                    {/* Search Icon — Opens inline header search */}
+                    {pathname !== "/admin" && (
+                      <button
+                        onClick={() => setIsSearchOpen(true)}
+                        className="p-2 opacity-60 hover:opacity-100 hover:text-[#C9A96E] transition-all duration-200 cursor-pointer"
+                        aria-label="Search Shop"
+                      >
+                        <Search size={16} />
+                      </button>
+                    )}
+
+                    {/* Theme Toggle (Desktop Only) */}
+                    <button
+                      onClick={toggleTheme}
+                      className="hidden md:flex p-2 opacity-60 hover:opacity-100 hover:text-[#C9A96E] transition-all duration-200 cursor-pointer"
+                      aria-label="Toggle theme"
+                    >
+                      {theme === "dark" ? (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+                          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                          <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+                          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                        </svg>
+                      ) : (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                        </svg>
+                      )}
+                    </button>
+
+                    {/* Cart */}
+                    {pathname !== "/admin" && (
+                      <button
+                        onClick={() => setIsCartOpen(true)}
+                        className="relative p-2 opacity-60 hover:opacity-100 hover:text-[#C9A96E] transition-all duration-200"
+                        aria-label="Cart"
+                      >
+                        <ShoppingCart size={16} />
+                        {totalCartItems > 0 && (
+                          <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-[#C9A96E] text-[7.5px] text-black font-bold flex items-center justify-center rounded-full">
+                            {totalCartItems}
+                          </span>
+                        )}
+                      </button>
+                    )}
+
+              {/* Profile (Desktop Only) */}
+              <div className="relative hidden md:block">
                 <button
-                  onClick={() => setIsProfileOpen(v => !v)}
-                  className="p-2 opacity-60 hover:opacity-100 hover:text-[#C9A96E] transition-all duration-200"
-                  aria-label="Account"
+                  onClick={() => {
+                    if (!user) {
+                      router.push("/signin");
+                    } else {
+                      setIsProfileOpen(!isProfileOpen);
+                    }
+                  }}
+                  className={`p-2 transition-all duration-200 ${
+                    user 
+                      ? "text-[#C9A96E] font-medium" 
+                      : "opacity-60 hover:opacity-100 hover:text-[#C9A96E]"
+                  }`}
+                  aria-label="User Account"
                 >
                   <User size={16} />
                 </button>
@@ -583,14 +714,25 @@ export const Header: React.FC = () => {
                 </AnimatePresence>
               </div>
 
-
-
-
-
+              {/* Mobile Menu Toggle (Right Side) */}
+              {pathname !== "/admin" && (
+                <button
+                  onClick={() => setIsMobileMenuOpen(true)}
+                  className={`md:hidden p-2 transition-colors opacity-70 hover:opacity-100 hover:text-[#C9A96E] ${
+                    theme === "dark" ? "text-white" : "text-black"
+                  }`}
+                  aria-label="Open menu"
+                >
+                  <Menu size={20} />
+                </button>
+              )}
 
             </div>
-          </div>
-        </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  </div>
 
         {/* ─── Mega Menu ─── */}
         <AnimatePresence>
@@ -778,42 +920,259 @@ export const Header: React.FC = () => {
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/80 z-50" onClick={() => setIsMobileMenuOpen(false)} />
             <motion.div
-              initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }}
+              initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
               transition={{ type: "spring", damping: 30, stiffness: 300 }}
-              className="fixed left-0 top-0 h-full w-80 bg-[#111111] border-r border-white/5 z-50 flex flex-col"
+              className={`fixed right-0 top-0 h-full w-80 z-50 flex flex-col border-l transition-colors duration-300 ${
+                theme === "dark"
+                  ? "bg-[#0d0d0d] border-white/10 text-white"
+                  : "bg-[#FAF8F5] border-black/10 text-black"
+              }`}
             >
-              <div className="flex items-center justify-between px-6 py-5 border-b border-white/5">
-                <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3">
-                  <img src="/logo.webp" alt="Logo" className="w-8 h-8 object-contain" />
-                  <div>
-                    <p className="font-serif text-[11px] tracking-[0.35em] uppercase text-white">Shree Sai</p>
-                    <p className="text-[7px] tracking-[0.45em] uppercase text-[#C9A96E]">Creation</p>
-                  </div>
+              {/* Drawer Header */}
+              <div className={`flex items-center justify-between px-6 py-5 border-b ${
+                theme === "dark" ? "border-white/5" : "border-black/5"
+              }`}>
+                <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center select-none">
+                  <Logo iconSize={28} />
                 </Link>
-                <button onClick={() => setIsMobileMenuOpen(false)} className="text-white/40 hover:text-white transition-colors p-1.5"><X size={18} /></button>
+
+                <button
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={`p-1.5 transition-colors cursor-pointer ${
+                    theme === "dark" ? "text-white/40 hover:text-white" : "text-black/40 hover:text-black"
+                  }`}
+                  aria-label="Close mobile menu"
+                >
+                  <X size={18} />
+                </button>
               </div>
 
-              <nav className="flex-1 px-6 py-8 space-y-1">
-                {navLinks.map(link => (
-                  <Link
-                    key={link.name}
-                    href={link.href}
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className={`block py-3 text-[11px] tracking-[0.25em] uppercase border-b border-white/5 transition-colors ${
-                      pathname === link.href ? "text-[#C9A96E]" : "text-white/60 hover:text-white"
-                    }`}
-                  >
-                    {link.name}
-                  </Link>
-                ))}
+              {/* Dedicated Quick Action Icons Strip (Pure Icons Only) */}
+              <div className={`px-6 py-3 border-b flex items-center justify-center gap-4 ${
+                theme === "dark" ? "bg-white/3 border-white/5" : "bg-black/2 border-black/5"
+              }`}>
+                {/* Theme Toggle Icon Button */}
+                <button
+                  onClick={toggleTheme}
+                  className={`w-10 h-10 rounded-full border flex items-center justify-center transition-all cursor-pointer ${
+                    theme === "dark"
+                      ? "bg-white/5 border-white/10 text-[#C9A96E] hover:bg-white/10 hover:border-[#C9A96E]"
+                      : "bg-black/5 border-black/10 text-[#C9A96E] hover:bg-black/10 hover:border-[#C9A96E]"
+                  }`}
+                  aria-label="Toggle Theme"
+                >
+                  {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
+                </button>
+
+                {/* Profile Account Icon Button */}
+                <button
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    router.push(user ? "/account" : "/signin");
+                  }}
+                  className={`w-10 h-10 rounded-full border flex items-center justify-center transition-all cursor-pointer ${
+                    user
+                      ? "bg-[#C9A96E]/20 border-[#C9A96E] text-[#C9A96E]"
+                      : theme === "dark"
+                        ? "bg-white/5 border-white/10 text-white/80 hover:text-white hover:border-[#C9A96E]"
+                        : "bg-black/5 border-black/10 text-black/80 hover:text-black hover:border-[#C9A96E]"
+                  }`}
+                  aria-label="User Account"
+                >
+                  <User size={17} />
+                </button>
+
+                {/* Wishlist Saved Icon Button */}
+                <button
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    setIsWishlistOpen(true);
+                  }}
+                  className={`w-10 h-10 rounded-full border flex items-center justify-center transition-all cursor-pointer ${
+                    theme === "dark"
+                      ? "bg-white/5 border-white/10 text-white/80 hover:text-[#C9A96E] hover:border-[#C9A96E]"
+                      : "bg-black/5 border-black/10 text-black/80 hover:text-[#C9A96E] hover:border-[#C9A96E]"
+                  }`}
+                  aria-label="Wishlist"
+                >
+                  <Heart size={17} />
+                </button>
+
+                {/* WhatsApp Direct Chat Button */}
+                <a
+                  href="https://wa.me/61432784241"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={`w-10 h-10 rounded-full border flex items-center justify-center transition-all cursor-pointer ${
+                    theme === "dark"
+                      ? "bg-white/5 border-white/10 text-emerald-400 hover:text-emerald-300 hover:border-emerald-500"
+                      : "bg-black/5 border-black/10 text-emerald-600 hover:text-emerald-500 hover:border-emerald-600"
+                  }`}
+                  aria-label="WhatsApp Chat"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
+                  </svg>
+                </a>
+              </div>
+
+              {/* User Profile Card if Logged In */}
+              {user && (
+                <div className={`px-6 py-4 border-b flex items-center gap-3 ${
+                  theme === "dark" ? "bg-white/3 border-white/5" : "bg-black/2 border-black/5"
+                }`}>
+                  <div className="w-9 h-9 rounded-full bg-[#C9A96E]/20 border border-[#C9A96E]/40 flex items-center justify-center font-serif text-xs font-semibold text-[#C9A96E] shrink-0">
+                    {user.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-bold tracking-wide truncate">{user.name}</p>
+                    <p className={`text-[9px] truncate ${theme === "dark" ? "text-white/40" : "text-black/40"}`}>{user.email}</p>
+                  </div>
+                </div>
+              )}
+
+              <nav className="flex-1 px-6 py-6 space-y-1 overflow-y-auto">
+                {navLinks.map(link => {
+                  const isShop = link.name.toLowerCase() === "shop";
+                  if (isShop) {
+                    return (
+                      <div key={link.name} className={`border-b ${theme === "dark" ? "border-white/5" : "border-black/5"}`}>
+                        <div className="flex items-center justify-between py-3">
+                          <Link
+                            href={link.href}
+                            onClick={() => setIsMobileMenuOpen(false)}
+                            className={`text-[11px] tracking-[0.25em] uppercase transition-colors ${
+                              pathname === link.href || pathname.startsWith("/shop")
+                                ? "text-[#C9A96E]"
+                                : theme === "dark"
+                                  ? "text-white/60 hover:text-white"
+                                  : "text-black/60 hover:text-black"
+                            }`}
+                          >
+                            {link.name}
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => setIsMobileShopOpen(!isMobileShopOpen)}
+                            className={`p-1 text-[#C9A96E] hover:opacity-100 transition-transform duration-200 cursor-pointer ${
+                              isMobileShopOpen ? "rotate-180" : ""
+                            }`}
+                            aria-label="Toggle Shop Categories"
+                          >
+                            <ChevronDown size={14} />
+                          </button>
+                        </div>
+
+                        {/* Shop Categories Accordion */}
+                        <AnimatePresence>
+                          {isMobileShopOpen && (
+                            <motion.div
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: "auto" }}
+                              exit={{ opacity: 0, height: 0 }}
+                              transition={{ duration: 0.2 }}
+                              className="overflow-hidden pl-3 pb-3 space-y-2.5 border-l border-[#C9A96E]/30 my-1"
+                            >
+                              <Link
+                                href="/shop"
+                                onClick={() => setIsMobileMenuOpen(false)}
+                                className={`block text-[10px] tracking-wider uppercase font-semibold transition-colors ${
+                                  pathname === "/shop"
+                                    ? "text-[#C9A96E]"
+                                    : theme === "dark" ? "text-white/80 hover:text-white" : "text-black/80 hover:text-black"
+                                }`}
+                              >
+                                All Products
+                              </Link>
+                              {MEGA_CATEGORIES.map(cat => (
+                                <Link
+                                  key={cat.name}
+                                  href={`/shop?category=${encodeURIComponent(cat.slug)}`}
+                                  onClick={() => setIsMobileMenuOpen(false)}
+                                  className={`block text-[10px] tracking-wider uppercase transition-colors ${
+                                    theme === "dark"
+                                      ? "text-white/60 hover:text-[#C9A96E]"
+                                      : "text-black/60 hover:text-[#C9A96E]"
+                                  }`}
+                                >
+                                  {cat.name}
+                                </Link>
+                              ))}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <Link
+                      key={link.name}
+                      href={link.href}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className={`block py-3 text-[11px] tracking-[0.25em] uppercase border-b transition-colors ${
+                        pathname === link.href
+                          ? "text-[#C9A96E]"
+                          : theme === "dark"
+                            ? "text-white/60 hover:text-white border-white/5"
+                            : "text-black/60 hover:text-black border-black/5"
+                      }`}
+                    >
+                      {link.name}
+                    </Link>
+                  );
+                })}
+                
+                {/* Account Links inside Drawer */}
+                {user && (
+                  <div className="pt-4 space-y-1">
+                    <p className="text-[9px] font-bold tracking-[0.3em] uppercase text-[#C9A96E] mb-2">My Account</p>
+                    <Link
+                      href="/account?tab=dashboard"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className={`flex items-center gap-2.5 py-2.5 text-[10px] tracking-wider uppercase transition-colors ${
+                        theme === "dark" ? "text-white/60 hover:text-white" : "text-black/60 hover:text-black"
+                      }`}
+                    >
+                      <User size={13} className="text-[#C9A96E]" />
+                      My Dashboard
+                    </Link>
+                    <Link
+                      href="/account?tab=orders"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className={`flex items-center gap-2.5 py-2.5 text-[10px] tracking-wider uppercase transition-colors ${
+                        theme === "dark" ? "text-white/60 hover:text-white" : "text-black/60 hover:text-black"
+                      }`}
+                    >
+                      <Package size={13} className="text-[#C9A96E]" />
+                      Orders & Tracking
+                    </Link>
+                    {user.role === "ADMIN" && (
+                      <Link
+                        href="/admin"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="flex items-center gap-2.5 py-2.5 text-[10px] tracking-wider uppercase text-[#C9A96E] font-semibold"
+                      >
+                        <LayoutDashboard size={13} />
+                        Admin Workspace
+                      </Link>
+                    )}
+                  </div>
+                )}
               </nav>
 
-              <div className="px-6 py-6 border-t border-white/5 space-y-3">
+              <div className={`px-6 py-5 border-t space-y-4 ${
+                theme === "dark" ? "border-white/5" : "border-black/5"
+              }`}>
                 {user ? (
-                  <div>
-                    <p className="text-[10px] text-white/40 mb-2">{user.email}</p>
-                    <button onClick={handleLogout} className="text-[10px] tracking-widest uppercase text-red-400/70">Sign Out</button>
-                  </div>
+                  <button
+                    onClick={() => { handleLogout(); setIsMobileMenuOpen(false); }}
+                    className="w-full flex items-center justify-center gap-2 text-[10px] tracking-widest uppercase text-red-400/80 hover:text-red-400 py-2 font-semibold cursor-pointer"
+                  >
+                    <LogOut size={12} />
+                    Sign Out
+                  </button>
                 ) : (
                   <div className="flex gap-3">
                     <Link href="/signin" onClick={() => setIsMobileMenuOpen(false)} className="btn-outline-luxury text-[10px] flex-1 py-3 text-center">Sign In</Link>

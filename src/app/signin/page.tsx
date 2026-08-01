@@ -30,7 +30,7 @@ export default function SignInPage() {
     setIsLoading(true);
 
     try {
-      const isAdmin = email.toLowerCase() === "admin@shreesaicreation.com";
+      const isAdmin = email.toLowerCase() === "support@shreesaicreation.com.au" || email.toLowerCase() === "admin@shreesaicreation.com";
       const endpoint = isAdmin ? "/api/v1/admin/auth/login" : "/api/v1/auth/login";
 
       const res = await fetch(endpoint, {
@@ -49,9 +49,17 @@ export default function SignInPage() {
 
       setSuccessMsg("Signed in successfully. Redirecting...");
 
-      const userObj = isAdmin
-        ? { email: data.admin.email, name: data.admin.name, role: "admin", token: data.token }
-        : { email: data.user.email, name: data.user.name, role: "customer", token: data.token };
+      const userRole = (data.admin?.role || data.user?.role || (isAdmin ? "admin" : "customer")).toLowerCase();
+      const userName = data.admin?.name || data.user?.name || "User";
+      const userEmail = data.admin?.email || data.user?.email || email;
+
+      const userObj = {
+        id: data.admin?.id || data.user?.id,
+        email: userEmail,
+        name: userName,
+        role: userRole,
+        token: data.token,
+      };
 
       localStorage.setItem("shree_sai_user", JSON.stringify(userObj));
 
@@ -59,9 +67,13 @@ export default function SignInPage() {
       await mergeCartAfterLogin();
 
       setTimeout(() => {
-        router.push("/");
+        if (userRole === "admin" || userRole === "super_admin") {
+          router.push("/admin");
+        } else {
+          router.push("/");
+        }
         router.refresh();
-      }, 1500);
+      }, 1200);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Connection failed. Please check if server is running.";
       setErrorMsg(message);

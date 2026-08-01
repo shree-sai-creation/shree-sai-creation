@@ -320,9 +320,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  // Currency Formatter — always INR (₹)
+  // Currency Formatter — always AUD ($)
   const formatPrice = (amount: number) => {
-    return `₹${Math.round(amount).toLocaleString("en-IN")}`;
+    return `$${Math.round(amount).toLocaleString("en-AU")}`;
   };
 
   const toggleTheme = () => {

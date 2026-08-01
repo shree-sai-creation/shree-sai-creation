@@ -22,7 +22,7 @@ function ShopContent() {
     const fetchProducts = async () => {
       try {
         setIsProductsLoading(true);
-        const res = await fetch("/api/v1/products?limit=100");
+        const res = await fetch("/api/v1/products?limit=100", { cache: "no-store" });
         const data = await res.json();
         if (res.ok && data.products) {
           setProducts(data.products.map(mapBackendProductToFrontend));
@@ -45,11 +45,9 @@ function ShopContent() {
 
   // State filters
   const [selectedCategory, setSelectedCategory] = useState("All");
-  const [selectedMaterial, setSelectedMaterial] = useState("All");
-  const [selectedFinish, setSelectedFinish] = useState("All");
-  const [priceTier, setPriceTier] = useState("All"); // All, Tier1 (under 2k), Tier2 (2k-5k), Tier3 (over 5k)
+  const [priceTier, setPriceTier] = useState("All"); // All, under-1000, 1000-3000, over-3000
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortOption, setSortOption] = useState("default"); // default, priceAsc, priceDesc, rating
+  const [sortOption, setSortOption] = useState("default"); // default, priceAsc, priceDesc
   const [layoutMode, setLayoutMode] = useState<"grid" | "list">("grid");
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -60,16 +58,11 @@ function ShopContent() {
     if (urlCategory) {
       setSelectedCategory(urlCategory);
     }
-    if (urlMaterial) {
-      setSelectedMaterial(urlMaterial);
-    }
-  }, [urlCategory, urlMaterial]);
+  }, [urlCategory]);
 
   // Clean filters button helper
   const handleResetFilters = () => {
     setSelectedCategory("All");
-    setSelectedMaterial("All");
-    setSelectedFinish("All");
     setPriceTier("All");
     setSearchQuery("");
     setSortOption("default");
@@ -80,17 +73,16 @@ function ShopContent() {
   const hasActiveFilters = useMemo(() => {
     return (
       selectedCategory !== "All" ||
-      selectedMaterial !== "All" ||
-      selectedFinish !== "All" ||
       priceTier !== "All" ||
-      searchQuery !== ""
+      searchQuery !== "" ||
+      sortOption !== "default"
     );
-  }, [selectedCategory, selectedMaterial, selectedFinish, priceTier, searchQuery]);
+  }, [selectedCategory, priceTier, searchQuery, sortOption]);
 
   // Reset pagination when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedCategory, selectedMaterial, selectedFinish, priceTier, sortOption]);
+  }, [searchQuery, selectedCategory, priceTier, sortOption]);
 
   // Filtering products
   const filteredProducts = useMemo(() => {
@@ -101,8 +93,7 @@ function ShopContent() {
       result = result.filter(
         (p) =>
           p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          p.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          p.material.toLowerCase().includes(searchQuery.toLowerCase())
+          p.category.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
 
@@ -111,23 +102,14 @@ function ShopContent() {
       result = result.filter((p) => p.category.toLowerCase() === selectedCategory.toLowerCase());
     }
 
-    // Material match
-    if (selectedMaterial !== "All") {
-      result = result.filter((p) => p.material.toLowerCase().includes(selectedMaterial.toLowerCase()));
-    }
-
-    // Finish match
-    if (selectedFinish !== "All") {
-      result = result.filter((p) => p.finish.toLowerCase().includes(selectedFinish.toLowerCase()));
-    }
-
-    // Price tier match (INR ranges)
+    // Price tier match ($ Dollar ranges)
     if (priceTier !== "All") {
       result = result.filter((p) => {
         const discountPrice = p.price * (1 - p.discount / 100);
-        if (priceTier === "under-5000") return discountPrice < 5000;
-        if (priceTier === "5000-20000") return discountPrice >= 5000 && discountPrice <= 20000;
-        if (priceTier === "over-20000") return discountPrice > 20000;
+        if (priceTier === "under-500") return discountPrice < 500;
+        if (priceTier === "500-1500") return discountPrice >= 500 && discountPrice <= 1500;
+        if (priceTier === "1500-3000") return discountPrice > 1500 && discountPrice <= 3000;
+        if (priceTier === "over-3000") return discountPrice > 3000;
         return true;
       });
     }
@@ -145,12 +127,10 @@ function ShopContent() {
         const pB = b.price * (1 - b.discount / 100);
         return pB - pA;
       });
-    } else if (sortOption === "rating") {
-      result.sort((a, b) => b.rating - a.rating);
     }
 
     return result;
-  }, [products, searchQuery, selectedCategory, selectedMaterial, selectedFinish, priceTier, sortOption]);
+  }, [products, searchQuery, selectedCategory, priceTier, sortOption]);
 
   const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE) || 1;
   
@@ -228,26 +208,18 @@ function ShopContent() {
                 </button>
               </span>
             )}
-            {selectedMaterial !== "All" && (
-              <span className="flex items-center gap-1.5 bg-white/5 border border-white/10 px-3 py-1 text-white">
-                Material: {selectedMaterial}
-                <button onClick={() => setSelectedMaterial("All")} className="hover:text-[#C5A880]">
-                  <X size={10} />
-                </button>
-              </span>
-            )}
-            {selectedFinish !== "All" && (
-              <span className="flex items-center gap-1.5 bg-white/5 border border-white/10 px-3 py-1 text-white">
-                Finish: {selectedFinish}
-                <button onClick={() => setSelectedFinish("All")} className="hover:text-[#C5A880]">
-                  <X size={10} />
-                </button>
-              </span>
-            )}
             {priceTier !== "All" && (
               <span className="flex items-center gap-1.5 bg-white/5 border border-white/10 px-3 py-1 text-white">
-                Price: {priceTier === "under-5000" ? "Under ₹5,000" : priceTier === "5000-20000" ? "₹5,000 – ₹20,000" : "Over ₹20,000"}
+                Price: {priceTier === "under-500" ? "Under $500" : priceTier === "500-1500" ? "$500 – $1,500" : priceTier === "1500-3000" ? "$1,500 – $3,000" : "Over $3,000"}
                 <button onClick={() => setPriceTier("All")} className="hover:text-[#C5A880]">
+                  <X size={10} />
+                </button>
+              </span>
+            )}
+            {sortOption !== "default" && (
+              <span className="flex items-center gap-1.5 bg-white/5 border border-white/10 px-3 py-1 text-white">
+                Sort: {sortOption === "priceAsc" ? "Low to High" : "High to Low"}
+                <button onClick={() => setSortOption("default")} className="hover:text-[#C5A880]">
                   <X size={10} />
                 </button>
               </span>
@@ -310,9 +282,6 @@ function ShopContent() {
                             </Link>
                             <p className="text-xs text-white/50 tracking-wider font-light leading-relaxed line-clamp-2 uppercase">
                               {p.description}
-                            </p>
-                            <p className="text-[9px] text-white/30 tracking-widest uppercase mt-1">
-                              Material: {p.material} &middot; Finish: {p.finish}
                             </p>
                           </div>
                           <div className="mt-4 flex items-center justify-between border-t border-white/5 pt-4">
@@ -408,8 +377,7 @@ function ShopContent() {
               </button>
             </div>
 
-
-            {/* Categories Filter */}
+            {/* 1. Categories Filter */}
             <div className="space-y-3">
               <h4 className="font-serif text-[10px] text-[#C5A880] tracking-wider pb-1 border-b border-white/5">
                 Categories
@@ -426,7 +394,7 @@ function ShopContent() {
                 >
                   All Categories
                 </button>
-                {CATEGORIES.map((cat) => (
+                {CATEGORIES.filter(c => c !== "All").map((cat) => (
                   <button
                     key={cat}
                     onClick={() => {
@@ -434,7 +402,7 @@ function ShopContent() {
                       setIsFilterDrawerOpen(false);
                     }}
                     className={`text-left text-white/60 hover:text-white ${
-                      selectedCategory === cat ? "text-[#C5A880] font-semibold" : ""
+                      selectedCategory.toLowerCase() === cat.toLowerCase() ? "text-[#C5A880] font-semibold" : ""
                     }`}
                   >
                     {cat}
@@ -443,17 +411,18 @@ function ShopContent() {
               </div>
             </div>
 
-            {/* Price Tiers Filter Mobile */}
+            {/* 2. Price Filter ($ Dollar) */}
             <div className="space-y-3">
               <h4 className="font-serif text-[10px] text-[#C5A880] tracking-wider pb-1 border-b border-white/5">
-                Price Tiers
+                Price Filter
               </h4>
               <div className="flex flex-col gap-2">
                 {[
                   { id: "All", name: "All Prices" },
-                  { id: "under-5000", name: "Under ₹5,000" },
-                  { id: "5000-20000", name: "₹5,000 – ₹20,000" },
-                  { id: "over-20000", name: "Over ₹20,000" },
+                  { id: "under-500", name: "Under $500" },
+                  { id: "500-1500", name: "$500 – $1,500" },
+                  { id: "1500-3000", name: "$1,500 – $3,000" },
+                  { id: "over-3000", name: "Over $3,000" },
                 ].map((tier) => (
                   <button
                     key={tier.id}
@@ -471,47 +440,28 @@ function ShopContent() {
               </div>
             </div>
 
-            {/* Material Filter Mobile */}
+            {/* 3. Sort Filter */}
             <div className="space-y-3">
               <h4 className="font-serif text-[10px] text-[#C5A880] tracking-wider pb-1 border-b border-white/5">
-                Materials
+                Sort By
               </h4>
               <div className="flex flex-col gap-2">
-                {MATERIALS.map((mat) => (
+                {[
+                  { id: "default", name: "Default" },
+                  { id: "priceAsc", name: "Price: Low to High" },
+                  { id: "priceDesc", name: "Price: High to Low" },
+                ].map((s) => (
                   <button
-                    key={mat}
+                    key={s.id}
                     onClick={() => {
-                      setSelectedMaterial(mat);
+                      setSortOption(s.id);
                       setIsFilterDrawerOpen(false);
                     }}
                     className={`text-left text-white/60 hover:text-white ${
-                      selectedMaterial === mat ? "text-[#C5A880] font-semibold" : ""
+                      sortOption === s.id ? "text-[#C5A880] font-semibold" : ""
                     }`}
                   >
-                    {mat}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Metal Finish Filter Mobile */}
-            <div className="space-y-3">
-              <h4 className="font-serif text-[10px] text-[#C5A880] tracking-wider pb-1 border-b border-white/5">
-                Metal Finishes
-              </h4>
-              <div className="flex flex-col gap-2 font-light">
-                {FINISHES.map((fin) => (
-                  <button
-                    key={fin}
-                    onClick={() => {
-                      setSelectedFinish(fin);
-                      setIsFilterDrawerOpen(false);
-                    }}
-                    className={`text-left text-white/60 hover:text-white ${
-                      selectedFinish === fin ? "text-[#C5A880] font-semibold" : ""
-                    }`}
-                  >
-                    {fin}
+                    {s.name}
                   </button>
                 ))}
               </div>
@@ -522,7 +472,7 @@ function ShopContent() {
                 handleResetFilters();
                 setIsFilterDrawerOpen(false);
               }}
-              className="w-full bg-[#111] hover:bg-transparent border border-white/10 hover:border-white text-white py-3 text-center uppercase tracking-widest text-[9px] transition-colors"
+              className="w-full bg-[#111] hover:bg-transparent border border-white/10 hover:border-white text-white py-3 text-center uppercase tracking-widest text-[9px] transition-colors mt-4"
             >
               Clear Filters
             </button>

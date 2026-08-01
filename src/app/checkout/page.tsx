@@ -34,7 +34,7 @@ export default function CheckoutPage() {
   // Dynamically update tax and shipping when state or zip is modified
   React.useEffect(() => {
     if (formData.state || formData.zip) {
-      updateShippingAndTax(formData.state, "IN", formData.zip);
+      updateShippingAndTax(formData.state, "AU", formData.zip);
     }
   }, [formData.state, formData.zip, updateShippingAndTax]);
 
@@ -67,7 +67,7 @@ export default function CheckoutPage() {
         city: formData.city,
         state: formData.state,
         pincode: formData.zip,
-        country: "IN"
+        country: "AU"
       };
 
       // Build cart items payload
@@ -168,11 +168,12 @@ export default function CheckoutPage() {
           </div>
 
           <div className="pt-2">
-            <Button variant="gold" className="w-full">
-              <Link href="/shop" className="w-full text-center">
-                Return to Showroom
-              </Link>
-            </Button>
+            <Link
+              href="/shop"
+              className="block w-full text-center bg-[#C5A880] text-black border border-[#C5A880] hover:bg-transparent hover:text-[#C5A880] font-sans text-xs tracking-[0.25em] uppercase px-8 py-3.5 font-semibold transition-all duration-300"
+            >
+              Return to Showroom
+            </Link>
           </div>
         </div>
       </div>
@@ -203,7 +204,7 @@ export default function CheckoutPage() {
               {/* 1. Shipping form */}
               <div className="bg-[#0d0d0d] border border-white/5 p-6 md:p-8 space-y-6">
                 <h3 className="font-serif text-xs text-white tracking-widest font-semibold border-b border-white/5 pb-3">
-                  01. Crating Delivery Coordinates
+                  Crating Delivery Coordinates
                 </h3>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -247,7 +248,7 @@ export default function CheckoutPage() {
                       value={formData.phone}
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                       className="w-full bg-[#111] border border-white/10 text-white placeholder-white/20 p-3 text-[9px] tracking-widest uppercase focus:border-white focus:outline-none"
-                      placeholder="+1 (555) 000-0000"
+                      placeholder="+61 412 345 678"
                       required
                     />
                   </div>
@@ -267,57 +268,41 @@ export default function CheckoutPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <label className="block font-medium">City *</label>
+                    <label className="block font-medium">City / Suburb *</label>
                     <input
                       type="text"
                       value={formData.city}
                       onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                       className="w-full bg-[#111] border border-white/10 text-white placeholder-white/20 p-3 text-[9px] tracking-widest uppercase focus:border-white focus:outline-none"
+                      placeholder="SYDNEY / MELBOURNE"
                       required
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="block font-medium">State / Region *</label>
+                    <label className="block font-medium">State / Territory *</label>
                     <input
                       type="text"
                       value={formData.state}
                       onChange={(e) => setFormData({ ...formData, state: e.target.value })}
                       className="w-full bg-[#111] border border-white/10 text-white placeholder-white/20 p-3 text-[9px] tracking-widest uppercase focus:border-white focus:outline-none"
+                      placeholder="NSW / VIC / QLD / WA"
                       required
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="block font-medium">Zip / Postal Code *</label>
+                    <label className="block font-medium">Australian Postcode *</label>
                     <input
                       type="text"
                       value={formData.zip}
                       onChange={(e) => setFormData({ ...formData, zip: e.target.value })}
                       className="w-full bg-[#111] border border-white/10 text-white placeholder-white/20 p-3 text-[9px] tracking-widest uppercase focus:border-white focus:outline-none"
+                      placeholder="3000 / 2000"
                       required
                     />
                   </div>
                 </div>
               </div>
 
-              {/* 2. Payment Method panel */}
-              <div className="bg-[#0d0d0d] border border-white/5 p-6 md:p-8 space-y-6">
-                <h3 className="font-serif text-xs text-white tracking-widest font-semibold border-b border-white/5 pb-3">
-                  02. Payment Method
-                </h3>
-                
-                {/* Single COD Option */}
-                <div className="p-4 border border-[#C5A880] bg-[#C5A880]/5 rounded-none space-y-3 font-sans text-xs tracking-wider normal-case text-white/90 leading-relaxed">
-                  <div className="flex items-center gap-3 text-[#C5A880]">
-                    <ShieldCheck size={18} />
-                    <span className="font-serif text-sm font-semibold uppercase tracking-widest text-[#C5A880]">
-                      Cash on Delivery (COD)
-                    </span>
-                  </div>
-                  <p className="font-light text-white/70">
-                    Pay safely upon delivery. No advance online payment required. Cash, UPI, or QR payment is accepted at your doorstep when your chandelier is delivered.
-                  </p>
-                </div>
-              </div>
             </div>
 
             {/* Right Summary Column */}

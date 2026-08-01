@@ -25,7 +25,7 @@ import { getStoredProducts, mapBackendProductToFrontend } from "@/utils/db";
 // ── Hero slides ──────────────────────────────────────────────
 const HERO_SLIDES = [
   {
-    image: "/landing-page/landing1.webp",
+    image: "/landing-page/desktop1.webp",
     eyebrow: "Illuminate Your World",
     headline: "TIMELESS ELEGANCE EXTRAORDINARY LIGHTING",
     sub: "Discover our premium collection of handcrafted chandeliers that blend luxury, innovation and timeless beauty.",
@@ -33,7 +33,7 @@ const HERO_SLIDES = [
     cta2: { label: "VIEW PROJECTS", href: "/shop" },
   },
   {
-    image: "/landing-page/landing2.webp",
+    image: "/landing-page/desktop2.webp",
     eyebrow: "Sculpted Radiance",
     headline: "MAJESTIC GLASS ARTISTRY FOR GRAND SPACES",
     sub: "Precision-cut optical glass prisms designed to refract and capture the perfect golden hour glow.",
@@ -41,9 +41,9 @@ const HERO_SLIDES = [
     cta2: { label: "VIEW PROJECTS", href: "/shop" },
   },
   {
-    image: "/landing-page/landing3.webp",
+    image: "/landing-page/desktop3.webp",
     eyebrow: "Bespoke Masterpieces",
-    headline: "HAND-FORGED METALS DISTINCT SIGNATURE DETAILS",
+    headline: "HAND FORGED METALS DISTINCT SIGNATURE DETAILS",
     sub: "Each chandelier is individually sculpted by hand to reflect the unique character of your high-end residence.",
     cta1: { label: "EXPLORE COLLECTION", href: "/shop" },
     cta2: { label: "VIEW PROJECTS", href: "/shop" },
@@ -55,37 +55,37 @@ const CATEGORIES = [
   { 
     name: "CHANDELIER", 
     count: 24, 
-    img: "https://images.unsplash.com/photo-1540932239986-30128078f3c5?q=80&w=600",
+    img: "/Categories/Chandiler.PNG",
     slug: "Chandelier"
   },
   { 
     name: "INDOOR WALL LAMPS", 
     count: 20, 
-    img: "https://images.unsplash.com/photo-1543248939-ff40856f65d4?q=80&w=600",
+    img: "/Categories/Indoor wall lamp.PNG",
     slug: "Indoor wall lamps"
   },
   { 
     name: "LINEAR LIGHTS", 
     count: 14, 
-    img: "https://images.unsplash.com/photo-1513506003901-1e6a229e2d15?q=80&w=600",
+    img: "/Categories/linear-lights.webp",
     slug: "Linear lights"
   },
   { 
     name: "CEILING LIGHTS", 
     count: 16, 
-    img: "https://images.unsplash.com/photo-1565538810643-b5bdb714032a?q=80&w=600",
+    img: "/Categories/ceiling-lights.PNG",
     slug: "Ceiling lights"
   },
   { 
     name: "INTERNAL PENDANT LIGHTS", 
     count: 18, 
-    img: "https://images.unsplash.com/photo-1524484485831-a92ffc0de03f?q=80&w=600",
+    img: "/Categories/internal-pendant-lights.PNG",
     slug: "Internal pendant lights"
   },
   { 
     name: "OUTDOOR WALL LAMPS", 
     count: 12, 
-    img: "https://images.unsplash.com/photo-1532007271951-c487760934ae?q=80&w=600",
+    img: "/Categories/Outdoor lamp.PNG",
     slug: "Outdoor wall lamps"
   }
 ];
@@ -109,7 +109,7 @@ export default function HomePage() {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const res = await fetch("/api/v1/products?limit=100");
+        const res = await fetch("/api/v1/products?limit=100", { cache: "no-store" });
         const data = await res.json();
         if (res.ok && data.products) {
           setProducts(data.products.map(mapBackendProductToFrontend));
@@ -175,12 +175,9 @@ export default function HomePage() {
               }`}
               style={{ backgroundImage: `url('${slide.image}')` }}
             />
-            {/* Ambient Overlays */}
-            <div className={`absolute inset-0 transition-colors duration-500 ${
-              theme === "dark" ? "bg-black/55" : "bg-black/25"
-            }`} />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30" />
-            <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-transparent to-transparent" />
+            {/* Dark overlay gradient for text readability */}
+            <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/55 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30" />
           </div>
         ))}
 
@@ -188,38 +185,33 @@ export default function HomePage() {
         <div className="relative z-20 h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col justify-center">
           <div className="max-w-2xl text-white">
             {/* Cursive script subtitle */}
-            <p className="font-serif text-[#C9A96E] text-2xl sm:text-3xl italic tracking-wide mb-4 animate-fade-in">
+            <p className="font-serif !text-[#C9A96E] text-2xl sm:text-3xl italic tracking-wide mb-4 animate-fade-in drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
               {HERO_SLIDES[currentSlide].eyebrow}
             </p>
             
-            {/* Bold serif title */}
-            <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-[1.1] tracking-[0.05em] mb-6 max-w-xl">
+            {/* Main heading */}
+            <h1 className="font-serif !text-white text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-[1.1] tracking-[0.05em] mb-6 max-w-xl drop-shadow-[0_4px_16px_rgba(0,0,0,1)]">
               {HERO_SLIDES[currentSlide].headline}
             </h1>
             
             {/* Thin dividing line */}
-            <div className="w-16 h-[1.5px] bg-[#C9A96E] mb-6" />
+            <div className="w-16 h-[1.5px] bg-[#C9A96E] mb-6 shadow-sm shadow-black" />
 
-            {/* Description subtext */}
-            <p className="text-[11px] sm:text-[12px] text-white/80 leading-[2] tracking-[0.15em] uppercase font-light max-w-md mb-10">
+            {/* Description */}
+            <p className="text-[11px] sm:text-[12px] !text-white leading-[2] tracking-[0.15em] uppercase font-medium max-w-md mb-10 drop-shadow-[0_2px_8px_rgba(0,0,0,1)]">
               {HERO_SLIDES[currentSlide].sub}
             </p>
 
-            {/* Two Call to Actions */}
+            {/* Call to Action */}
             <div className="flex flex-col sm:flex-row gap-4 mt-2">
               <Link
                 href={HERO_SLIDES[currentSlide].cta1.href}
-                className="w-full sm:w-auto bg-[#C9A96E] hover:bg-[#E8D5A3] text-black font-semibold text-[10px] tracking-[0.25em] px-8 py-4 transition-all duration-300 rounded-none shadow-lg shadow-black/30 text-center"
+                className="w-full sm:w-auto bg-[#C9A96E] hover:bg-[#E8D5A3] !text-black font-semibold text-[10px] tracking-[0.25em] px-8 py-4 transition-all duration-300 rounded-none shadow-xl shadow-black/50 text-center"
               >
                 {HERO_SLIDES[currentSlide].cta1.label}
               </Link>
-              <Link
-                href={HERO_SLIDES[currentSlide].cta2.href}
-                className="w-full sm:w-auto border border-white/60 hover:border-white text-white font-semibold text-[10px] tracking-[0.25em] px-8 py-4 transition-all duration-300 rounded-none text-center bg-white/5 backdrop-blur-sm"
-              >
-                {HERO_SLIDES[currentSlide].cta2.label}
-              </Link>
             </div>
+
           </div>
 
           {/* Dots Indicator */}
@@ -249,7 +241,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-7">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 divide-y md:divide-y-0 md:divide-x divide-white/5 md:divide-black/5">
             {[
-              { icon: <Truck size={20} className="text-[#C9A96E]" />, title: "FREE SHIPPING", sub: "Worldwide Order" },
+              { icon: <Star size={20} className="text-[#C9A96E]" />, title: "TIMELESS DESIGN", sub: "Architectural Beauty" },
               { icon: <Award size={20} className="text-[#C9A96E]" />, title: "PREMIUM QUALITY", sub: "Finest Materials" },
               { icon: <ShieldCheck size={20} className="text-[#C9A96E]" />, title: "SECURE PAYMENT", sub: "100% Secure" },
               { icon: <Headphones size={20} className="text-[#C9A96E]" />, title: "CUSTOMER SUPPORT", sub: "24/7 Support" }
@@ -367,118 +359,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ════════════════════════════════════════════════════════
-          4. BEST SELLERS SCROLLER SECTION
-      ════════════════════════════════════════════════════════ */}
-      <section className={`py-20 md:py-28 transition-colors duration-300 border-t ${
-        theme === "dark" ? "bg-[#0b0b0b] border-white/5" : "bg-white border-black/5"
-      }`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Header Row */}
-        {/* Header Row */}
-        <div className="relative flex flex-col items-center mb-12 sm:mb-16">
-          <div className="text-center space-y-3">
-            <p className="text-xs sm:text-sm tracking-[0.35em] uppercase text-[#C9A96E] font-semibold">Featured Products</p>
-            <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold tracking-wide">Best Sellers</h2>
-          </div>
-          
-          {/* Arrows */}
-          <div className="flex items-center gap-3 mt-8 md:absolute md:right-0 md:bottom-2 md:mt-0">
-            <button
-              onClick={scrollLeft}
-              className={`w-11 h-11 rounded-full flex items-center justify-center border transition-all duration-300 cursor-pointer ${
-                theme === "dark"
-                  ? "border-white/10 hover:border-white/30 text-white/55 hover:text-white hover:bg-white/5"
-                  : "border-black/10 hover:border-black/30 text-black/55 hover:text-black hover:bg-black/5"
-              }`}
-              aria-label="Previous Products"
-            >
-              <ArrowLeft size={18} />
-            </button>
-            <button
-              onClick={scrollRight}
-              className={`w-11 h-11 rounded-full flex items-center justify-center border transition-all duration-300 cursor-pointer ${
-                theme === "dark"
-                  ? "border-white/10 hover:border-white/30 text-white/55 hover:text-white hover:bg-white/5"
-                  : "border-black/10 hover:border-black/30 text-black/55 hover:text-black hover:bg-black/5"
-              }`}
-              aria-label="Next Products"
-            >
-              <ArrowRightIcon size={18} />
-            </button>
-          </div>
-        </div>
 
-          {/* Horizontal Scroller container */}
-          <div 
-            ref={carouselRef}
-            className="flex gap-5 overflow-x-auto scrollbar-none pb-4 snap-x snap-mandatory"
-            style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-          >
-            {bestSellers.map(product => (
-              <div key={product.id} className="w-[75vw] sm:w-[280px] lg:w-[300px] shrink-0 snap-start">
-                <ProductCard product={product} />
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ════════════════════════════════════════════════════════
-          5. LOWER TRUST BAR (BRAND PILLARS)
-      ════════════════════════════════════════════════════════ */}
-      <section className={`py-16 border-t transition-colors duration-300 ${
-        theme === "dark" ? "bg-[#060606] border-white/5" : "bg-[#FAF8F5] border-black/5"
-      }`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            {[
-              {
-                icon: <Hammer size={18} />,
-                title: "EXPERT CRAFTSMANSHIP",
-                desc: "Handcrafted by skilled artisans with precision."
-              },
-              {
-                icon: <Sparkles size={18} />,
-                title: "CUSTOM DESIGN",
-                desc: "Personalized lighting solutions for your space."
-              },
-              {
-                icon: <Award size={18} />,
-                title: "LUXURY MATERIALS",
-                desc: "Made with the finest materials worldwide."
-              },
-              {
-                icon: <Star size={18} />,
-                title: "TIMELESS DESIGN",
-                desc: "Elegant designs that never go out of style."
-              }
-            ].map((pillar, idx) => (
-              <div 
-                key={idx}
-                className="flex flex-col items-center text-center p-5 space-y-4 group"
-              >
-                {/* Icon Container */}
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center border transition-all duration-300 ${
-                  theme === "dark" 
-                    ? "border-white/10 text-[#C9A96E] bg-white/3 group-hover:border-[#C9A96E]/50" 
-                    : "border-black/10 text-[#C9A96E] bg-black/3 group-hover:border-[#C9A96E]/50"
-                }`}>
-                  {pillar.icon}
-                </div>
-                {/* Title */}
-                <h3 className="text-[10px] tracking-[0.25em] font-bold uppercase">{pillar.title}</h3>
-                {/* Description */}
-                <p className={`text-[10.5px] leading-relaxed tracking-wider max-w-xs ${
-                  theme === "dark" ? "text-white/40" : "text-black/45"
-                }`}>
-                  {pillar.desc}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
     </div>
   );

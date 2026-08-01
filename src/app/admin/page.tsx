@@ -138,7 +138,7 @@ export default function AdminPage() {
   const [taxLoading, setTaxLoading] = useState(false);
 
   // Users management state
-  const [users, setUsers] = useState<{ id: number; name: string; email: string; role: string; created_at: string }[]>([]);
+  const [users, setUsers] = useState<{ id: string; name: string; email: string; role: string; created_at: string }[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
   const [userSearch, setUserSearch] = useState("");
 
@@ -278,6 +278,58 @@ export default function AdminPage() {
     }
   };
 
+  // Compress image client-side before upload to reduce file size
+  const compressImageFile = (file: File): Promise<File> => {
+    return new Promise((resolve) => {
+      if (file.type === "image/svg+xml" || file.size < 400 * 1024) {
+        return resolve(file);
+      }
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const MAX_WIDTH = 1920;
+        const MAX_HEIGHT = 1920;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height = Math.round((height * MAX_WIDTH) / width);
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width = Math.round((width * MAX_HEIGHT) / height);
+            height = MAX_HEIGHT;
+          }
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return resolve(file);
+
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) return resolve(file);
+            const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", {
+              type: "image/jpeg",
+              lastModified: Date.now(),
+            });
+            resolve(compressedFile);
+          },
+          "image/jpeg",
+          0.85
+        );
+      };
+      img.onerror = () => resolve(file);
+      img.src = url;
+    });
+  };
+
   const handleImageFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -287,12 +339,13 @@ export default function AdminPage() {
     const token = parsed?.token;
 
     setIsUploadingImage(true);
-    const uploadedUrls: string[] = [];
 
     try {
-      for (let i = 0; i < files.length; i++) {
+      const fileList = Array.from(files);
+      const uploadPromises = fileList.map(async (rawFile) => {
+        const fileToUpload = await compressImageFile(rawFile);
         const uploadData = new FormData();
-        uploadData.append("file", files[i]);
+        uploadData.append("file", fileToUpload);
 
         const res = await fetch("/api/v1/admin/upload", {
           method: "POST",
@@ -301,11 +354,24 @@ export default function AdminPage() {
           },
           body: uploadData
         });
+
         const data = await res.json();
         if (res.ok && data.url) {
-          uploadedUrls.push(data.url);
+          return data.url as string;
+        } else {
+          if (res.status === 401) {
+            alert("Admin session expired. Please sign in again as admin.");
+            localStorage.removeItem("shree_sai_user");
+            router.push("/signin");
+            return null;
+          }
+          console.error(data.message || `Failed to upload image ${rawFile.name}`);
+          return null;
         }
-      }
+      });
+
+      const results = await Promise.all(uploadPromises);
+      const uploadedUrls = results.filter((url): url is string => Boolean(url));
 
       if (uploadedUrls.length > 0) {
         const currentImages = formData.images ? formData.images.split(",").map(i => i.trim()).filter(Boolean) : [];
@@ -337,8 +403,8 @@ export default function AdminPage() {
       setAdminUser(parsed);
       setIsAuth(true);
       
-      // Load products from new SQLite API
-      fetch("/api/v1/products")
+      // Load all products from API (limit=100)
+      fetch("/api/v1/products?limit=100", { cache: "no-store" })
         .then((res) => res.json())
         .then((data) => {
           if (data.products && Array.isArray(data.products)) {
@@ -350,14 +416,14 @@ export default function AdminPage() {
               description: (p.description as string) || "",
               category: (p.category as string) || "Chandelier",
               price: p.price as number,
-              discount: p.discount as number,
-              rating: p.rating as number,
+              discount: (p.discount as number) || 0,
+              rating: (p.rating as number) || 5,
               reviews: [],
               dimensions: (p.dimensions as string) || "",
               material: (p.material as string) || "",
               finish: (p.finish as string) || "",
               bulbs: (p.bulbs as string) || "",
-              stock: p.stock as number,
+              stock: (p.stock as number) || 0,
               images: (p.images as string[]) || [],
               features: (p.features as string[]) || [],
               specifications: (p.specifications as Record<string, string>) || {},
@@ -599,7 +665,15 @@ export default function AdminPage() {
       }
 
       const resData = await res.json();
-      if (!res.ok) throw new Error(resData.message || "Failed to save product");
+      if (!res.ok) {
+        if (res.status === 401) {
+          alert("Admin session expired. Please sign in again as admin.");
+          localStorage.removeItem("shree_sai_user");
+          router.push("/signin");
+          return;
+        }
+        throw new Error(resData.message || "Failed to save product");
+      }
 
       const savedP = resData.product;
       const frontendProduct: Product = {
@@ -809,6 +883,32 @@ export default function AdminPage() {
                 <Plus size={15} /> Add Statement Chandelier
               </Button>
             </div>
+          )}
+
+          {activeTab === "orders" && (
+            <Button
+              onClick={async () => {
+                if (!window.confirm("Are you sure you want to clear all orders for a fresh start? This cannot be undone.")) return;
+                const storedUser = localStorage.getItem("shree_sai_user");
+                const parsed = storedUser ? JSON.parse(storedUser) : null;
+                const res = await fetch("/api/v1/admin/orders", {
+                  method: "DELETE",
+                  headers: { "Authorization": `Bearer ${parsed?.token}` }
+                });
+                if (res.ok) {
+                  setOrders([]);
+                  localStorage.removeItem("shree_sai_db_orders");
+                  alert("All orders cleared successfully! Fresh start active.");
+                } else {
+                  const data = await res.json();
+                  alert(data.message || "Failed to clear orders");
+                }
+              }}
+              variant="outline"
+              className="flex items-center gap-2 rounded-none px-4 text-xs tracking-wider uppercase font-semibold h-11 border-red-500/40 text-red-400 hover:bg-red-500/10"
+            >
+              <Trash2 size={15} /> Clear All Orders (Fresh Start)
+            </Button>
           )}
         </div>
 
@@ -1182,13 +1282,13 @@ export default function AdminPage() {
                         </td>
                       </tr>
                     ) : users.filter(u =>
-                        u.name.toLowerCase().includes(userSearch.toLowerCase()) ||
-                        u.email.toLowerCase().includes(userSearch.toLowerCase())
+                        (u.name || "").toLowerCase().includes(userSearch.toLowerCase()) ||
+                        (u.email || "").toLowerCase().includes(userSearch.toLowerCase())
                       ).length ? (
                       users
                         .filter(u =>
-                          u.name.toLowerCase().includes(userSearch.toLowerCase()) ||
-                          u.email.toLowerCase().includes(userSearch.toLowerCase())
+                          (u.name || "").toLowerCase().includes(userSearch.toLowerCase()) ||
+                          (u.email || "").toLowerCase().includes(userSearch.toLowerCase())
                         )
                         .map((user) => (
                           <tr key={user.id} className="hover:bg-[rgba(var(--foreground),0.005)] transition-colors">
@@ -1198,12 +1298,12 @@ export default function AdminPage() {
                               <div className="flex items-center gap-3">
                                 <div className="w-8 h-8 rounded-full bg-[rgb(var(--gold))]/10 border border-[rgb(var(--gold))]/20 flex items-center justify-center shrink-0">
                                   <span className="text-[10px] font-semibold text-[rgb(var(--gold))]">
-                                    {user.name.charAt(0).toUpperCase()}
+                                    {(user.name || user.email || "U").charAt(0).toUpperCase()}
                                   </span>
                                 </div>
                                 <div>
-                                  <p className="font-semibold text-[rgb(var(--foreground))] text-[11px] normal-case font-serif tracking-normal">{user.name}</p>
-                                  <p className="text-[8px] text-[rgb(var(--text-muted))] tracking-widest">ID #{user.id}</p>
+                                  <p className="font-semibold text-[rgb(var(--foreground))] text-[11px] normal-case font-serif tracking-normal">{user.name || "Customer User"}</p>
+                                  <p className="text-[8px] text-[rgb(var(--text-muted))] tracking-widest">ID #{user.id.slice(0, 8)}</p>
                                 </div>
                               </div>
                             </td>
@@ -1583,7 +1683,7 @@ export default function AdminPage() {
               {/* Pricing, Discount, Stock, Rating Row */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="space-y-2">
-                  <label className="block font-semibold">Price (INR) *</label>
+                  <label className="block font-semibold">Price (AUD $) *</label>
                   <input
                     type="number"
                     required

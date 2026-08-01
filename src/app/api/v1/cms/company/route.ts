@@ -5,7 +5,7 @@ import { logApiResponse } from "@/lib/middleware";
 // Default fallback company info
 const DEFAULT_COMPANY_INFO = {
   aboutUs: "Shree Sai Creation is a premier luxury lighting design studio specializing in bespoke crystal chandeliers, brass pendants, and architectural light fixtures.",
-  contactEmail: "support@shreesaicreation.com",
+  contactEmail: "support@shreesaicreation.com.au",
   contactPhone: "+91 98765 43210",
   storeAddress: "123 Luxury Avenue, Design District, New Delhi, India 110001",
   businessHours: "Monday - Saturday: 10:00 AM - 8:00 PM IST",

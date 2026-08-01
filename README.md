@@ -1,42 +1,142 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Shree Sai Creation
+
+E-commerce platform for premium chandeliers and luxury lighting solutions.
+
+Built with **Next.js 15**, **TypeScript**, **Prisma ORM**, **Supabase** and **TailwindCSS v4**.
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Framework | Next.js 15 (App Router) |
+| Language | TypeScript |
+| Styling | TailwindCSS v4 |
+| Database ORM | Prisma |
+| Database | PostgreSQL (via Supabase) |
+| File Storage | Supabase Storage |
+| Auth | JWT (bcryptjs) |
+| Animation | Framer Motion |
+| Icons | Lucide React |
+| Validation | Zod |
+
+---
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 18+
+- PostgreSQL database (Supabase recommended)
+
+### Installation
 
 ```bash
+# Clone the repository
+git clone <repo-url>
+cd shree-sai-creation
+
+# Install dependencies
+npm install
+
+# Set up environment variables
+cp .env.production.example .env.local
+# Edit .env.local with your credentials
+
+# Generate Prisma client
+npm run prisma:generate
+
+# Run database migrations
+npx prisma db push
+
+# (Optional) Seed the database
+npm run prisma:seed
+
+# Start the development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Environment Variables
 
-## Learn More
+See `.env.production.example` for all required variables. Key ones:
 
-To learn more about Next.js, take a look at the following resources:
+```env
+DATABASE_URL=
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+JWT_SECRET=
+JWT_REFRESH_SECRET=
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Project Structure
 
-## Deploy on Vercel
+```
+src/
+├── app/
+│   ├── api/v1/         # REST API routes
+│   ├── admin/          # Admin dashboard
+│   ├── shop/           # Product listing & detail pages
+│   └── ...             # Other pages (cart, checkout, account etc.)
+├── components/
+│   ├── common/         # Header, Footer, shared UI
+│   └── ui/             # Reusable UI primitives
+├── context/            # React context (Cart, Theme etc.)
+├── lib/                # Server utilities (auth, storage, email)
+├── utils/              # Client utilities
+└── data/               # Static data (fallback products)
+prisma/
+└── schema.prisma       # Database schema
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Available Scripts
 
+```bash
+npm run dev           # Development server (Turbopack)
+npm run build         # Production build
+npm run start         # Start production server
+npm run lint          # Run ESLint
+npm run prisma:generate  # Generate Prisma client
+npm run prisma:seed      # Seed database
+```
 
+---
 
+## Deployment
 
+The app is deployed on a VPS with **PM2** and **Nginx** as reverse proxy.
 
+```bash
+# Build and restart
+npm run build
+pm2 restart shree-sai-creation
+```
 
+---
+
+## Admin Access
+
+Navigate to `/admin` and sign in with an account that has the `ADMIN` role.
+
+Admin features include:
+- Product management (create, edit, publish/unpublish)
+- Image upload with client-side compression
+- Order management
+- Category & brand management
+- CMS sections (banners, SEO, company info)
+- Analytics dashboard
+
+---
+
+## License
+
+Private — All rights reserved © Shree Sai Creation

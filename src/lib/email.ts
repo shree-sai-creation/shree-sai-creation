@@ -6,8 +6,8 @@
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
 const SENDER_EMAIL = process.env.SENDER_EMAIL || "Shree Sai Creation <onboarding@resend.dev>";
-const STORE_ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@shreesaicreation.com";
-const SITE_URL = process.env.ALLOWED_ORIGIN || process.env.NEXT_PUBLIC_APP_URL || "https://shreesaicreation.com";
+const STORE_ADMIN_EMAIL = process.env.ADMIN_EMAIL || "support@shreesaicreation.com.au";
+const SITE_URL = process.env.ALLOWED_ORIGIN || process.env.NEXT_PUBLIC_APP_URL || "https://shreesaicreation.com.au";
 
 export interface SendEmailOptions {
   to: string;
@@ -91,7 +91,7 @@ function wrapInEmailTemplate(contentHtml: string, previewText: string = ""): str
       </div>
       <div class="footer">
         <p style="margin: 0 0 8px 0;">SHREE SAI CREATION — Melbourne & Global Showrooms</p>
-        <p style="margin: 0;">White-Glove Support: support@shreesaicreation.com | +91 98765 43210</p>
+        <p style="margin: 0;">White-Glove Support: support@shreesaicreation.com.au | +91 98765 43210</p>
       </div>
     </div>
   </div>

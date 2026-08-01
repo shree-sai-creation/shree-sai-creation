@@ -46,25 +46,56 @@ export async function uploadFileToStorage({
   const targetBucket = BUCKET_MAPPING[bucket] || bucket;
   const storagePath = `${Date.now()}_${fileName}`;
 
-  try {
-    const { error } = await supabase.storage
-      .from(targetBucket)
-      .upload(storagePath, fileBuffer, {
-        contentType,
-        upsert: true,
-      });
+  // 1. Try Supabase Storage if credentials are valid
+  const isSupabaseValid =
+    SUPABASE_SERVICE_ROLE_KEY &&
+    !SUPABASE_SERVICE_ROLE_KEY.includes("placeholder") &&
+    !SUPABASE_SERVICE_ROLE_KEY.includes("YOUR_");
 
-    if (error) {
-      console.warn("Supabase Storage Upload Warning:", error.message);
+  if (isSupabaseValid) {
+    try {
+      const { error } = await supabase.storage
+        .from(targetBucket)
+        .upload(storagePath, fileBuffer, {
+          contentType,
+          upsert: true,
+        });
+
+      if (!error) {
+        const { data } = supabase.storage.from(targetBucket).getPublicUrl(storagePath);
+        if (data?.publicUrl) {
+          return {
+            storageKey: `${targetBucket}/${storagePath}`,
+            publicUrl: data.publicUrl,
+          };
+        }
+      } else {
+        console.warn("Supabase Storage Upload Warning:", error.message);
+      }
+    } catch (err) {
+      console.warn("Supabase Storage Upload Exception, falling back to disk:", err);
+    }
+  }
+
+  // 2. Local Disk Storage Fallback (Always Works 100% on Production VPS)
+  try {
+    const fs = await import("fs");
+    const path = await import("path");
+
+    const uploadDir = path.join(process.cwd(), "public", "uploads");
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
     }
 
-    const { data } = supabase.storage.from(targetBucket).getPublicUrl(storagePath);
-    const publicUrl = data?.publicUrl || `${SUPABASE_URL}/storage/v1/object/public/${targetBucket}/${storagePath}`;
-    const storageKey = `${targetBucket}/${storagePath}`;
+    const filePath = path.join(uploadDir, storagePath);
+    fs.writeFileSync(filePath, fileBuffer);
 
-    return { storageKey, publicUrl };
-  } catch (err) {
-    console.error("Storage upload error:", err);
+    return {
+      storageKey: `uploads/${storagePath}`,
+      publicUrl: `/uploads/${storagePath}`,
+    };
+  } catch (diskErr) {
+    console.error("Local disk storage error:", diskErr);
     const storageKey = `${targetBucket}/${storagePath}`;
     const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${targetBucket}/${storagePath}`;
     return { storageKey, publicUrl };

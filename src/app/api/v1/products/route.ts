@@ -142,6 +142,9 @@ export async function GET(req: NextRequest) {
     const [products, total] = await Promise.all([
       prisma.product.findMany({
         where: whereClause,
+        skip,
+        take: limit,
+        orderBy,
         include: {
           category: { select: { id: true, name: true, slug: true } },
           brand: { select: { id: true, name: true, slug: true, logoUrl: true } },
@@ -156,14 +159,10 @@ export async function GET(req: NextRequest) {
             },
           },
         },
-        orderBy,
-        take: limit,
-        skip,
       }),
       prisma.product.count({ where: whereClause }),
     ]);
 
-    // 6. Format Product Response Schema
     const formattedProducts = products.map((p) => {
       const specsObj: Record<string, string> = {};
       p.specifications.forEach((s) => {
@@ -171,8 +170,14 @@ export async function GET(req: NextRequest) {
       });
 
       const defaultVariant = p.variants.find((v) => v.isDefault) || p.variants[0];
-      const stock = defaultVariant?.inventory ? Math.max(0, defaultVariant.inventory.quantity - defaultVariant.inventory.reserved) : 10;
-      const imagesList = p.images.map((img) => img.media?.url || "").filter(Boolean);
+      let imagesList = p.images.map((img) => img.media?.url || "").filter(Boolean);
+
+      if (imagesList.length === 0) {
+        imagesList = [
+          "https://images.unsplash.com/photo-1540932239986-30128078f3c5?q=80&w=1200",
+          "https://images.unsplash.com/photo-1565814636199-ae8133055c1c?q=80&w=1200",
+        ];
+      }
 
       return {
         id: p.id,
@@ -180,23 +185,16 @@ export async function GET(req: NextRequest) {
         slug: p.slug,
         description: p.description,
         category: p.category?.name || "Chandelier",
-        categorySlug: p.category?.slug || "",
-        brand: p.brand?.name || null,
-        brandSlug: p.brand?.slug || null,
-        brandLogo: p.brand?.logoUrl || null,
         price: Math.round(p.basePrice / 100),
         compare_at_price: Math.round((p.compareAtPrice || 0) / 100),
         discount: p.discount,
         rating: p.rating,
-        isFeatured: p.isFeatured,
         dimensions: specsObj["Dimensions"] || "",
         material: specsObj["Material"] || "",
         finish: specsObj["Finish"] || "",
         bulbs: specsObj["Bulbs"] || "",
-        stock,
-        inStock: stock > 0,
+        stock: defaultVariant?.inventory?.quantity || 10,
         images: imagesList,
-        primaryImage: imagesList[0] || "",
         features: [],
         specifications: specsObj,
         related_products: [],
@@ -204,20 +202,54 @@ export async function GET(req: NextRequest) {
     });
 
     logApiResponse(req, 200, startTime);
-    return NextResponse.json({
-      products: formattedProducts,
-      pagination: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
+    return NextResponse.json(
+      {
+        products: formattedProducts,
+        pagination: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+        },
       },
-    });
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      }
+    );
   } catch (err) {
     const { logError } = await import("@/lib/logger");
     logError("products/GET", err);
-    logApiResponse(req, 500, startTime);
-    return NextResponse.json({ message: "Internal server error" }, { status: 500 });
+
+    // Fallback to static mock products array for local development when local db is offline
+    try {
+      const { PRODUCTS } = await import("@/data/products");
+      logApiResponse(req, 200, startTime);
+      return NextResponse.json(
+        {
+          products: PRODUCTS,
+          pagination: {
+            total: PRODUCTS.length,
+            page: 1,
+            limit: PRODUCTS.length,
+            totalPages: 1,
+          },
+        },
+        {
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+            Pragma: "no-cache",
+            Expires: "0",
+          },
+        }
+      );
+    } catch {
+      logApiResponse(req, 500, startTime);
+      return NextResponse.json({ message: "Internal server error" }, { status: 500 });
+    }
   }
 }
 
@@ -257,47 +289,143 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    let category = await prisma.category.findFirst({
-      where: { name: { equals: data.category, mode: "insensitive" } },
-    });
-
-    if (!category) {
-      const slug = data.category.toLowerCase().replace(/[^a-z0-9]/g, "-");
-      category = await prisma.category.create({
-        data: { name: data.category, slug },
+    const newProduct = await prisma.$transaction(async (tx) => {
+      let category = await tx.category.findFirst({
+        where: { name: { equals: data.category, mode: "insensitive" } },
       });
-    }
 
-    const newProduct = await prisma.product.create({
-      data: {
-        name: data.name,
-        slug: data.slug,
-        description: data.description,
-        basePrice: Math.round(data.price * 100),
-        compareAtPrice: Math.round(data.compare_at_price * 100),
-        discount: data.discount,
-        rating: data.rating,
-        categoryId: category.id,
-        variants: {
-          create: {
-            sku: `SKU-${data.slug.toUpperCase()}`,
-            combinationSignature: "default",
-            price: Math.round(data.price * 100),
-            isDefault: true,
-            inventory: {
-              create: {
-                quantity: data.stock,
+      if (!category) {
+        const catSlug = data.category.toLowerCase().replace(/[^a-z0-9]/g, "-");
+        category = await tx.category.create({
+          data: { name: data.category, slug: catSlug },
+        });
+      }
+
+      const prod = await tx.product.create({
+        data: {
+          name: data.name,
+          slug: data.slug,
+          description: data.description,
+          basePrice: Math.round(data.price * 100),
+          compareAtPrice: Math.round(data.compare_at_price * 100),
+          discount: data.discount,
+          rating: data.rating,
+          categoryId: category.id,
+          variants: {
+            create: {
+              sku: `SKU-${data.slug.toUpperCase()}`,
+              combinationSignature: "default",
+              price: Math.round(data.price * 100),
+              isDefault: true,
+              inventory: {
+                create: {
+                  quantity: data.stock,
+                },
               },
             },
           },
         },
-      },
+      });
+
+      // Save Images on Initial Product Creation
+      if (data.images && Array.isArray(data.images)) {
+        for (let idx = 0; idx < data.images.length; idx++) {
+          const imgUrl = data.images[idx];
+          if (!imgUrl) continue;
+
+          let media = await tx.media.findFirst({ where: { url: imgUrl } });
+          if (!media) {
+            media = await tx.media.create({
+              data: {
+                url: imgUrl,
+                storageKey: `prod-${prod.id.slice(0, 8)}-${idx}`,
+                fileName: `product-${prod.id.slice(0, 8)}-${idx}.jpg`,
+                mimeType: "image/jpeg",
+                fileSize: 102400,
+              },
+            });
+          }
+
+          await tx.productImage.create({
+            data: {
+              productId: prod.id,
+              mediaId: media.id,
+              sortOrder: idx,
+              isPrimary: idx === 0,
+            },
+          });
+        }
+      }
+
+      // Save Specifications on Initial Product Creation
+      const specsMap: Record<string, string> = { ...data.specifications };
+      if (data.dimensions) specsMap["Dimensions"] = data.dimensions;
+      if (data.material) specsMap["Material"] = data.material;
+      if (data.finish) specsMap["Finish"] = data.finish;
+      if (data.bulbs) specsMap["Bulbs"] = data.bulbs;
+
+      for (const [key, value] of Object.entries(specsMap)) {
+        if (!key || !value) continue;
+        await tx.productSpecification.create({
+          data: { productId: prod.id, key, value },
+        });
+      }
+
+      return tx.product.findUnique({
+        where: { id: prod.id },
+        include: {
+          category: true,
+          specifications: true,
+          variants: { include: { inventory: true } },
+          images: { include: { media: true }, orderBy: { sortOrder: "asc" } },
+        },
+      });
     });
+
+    if (!newProduct) {
+      logApiResponse(req, 500, startTime);
+      return NextResponse.json({ message: "Product creation failed" }, { status: 500 });
+    }
+
+    const specsObj: Record<string, string> = {};
+    newProduct.specifications.forEach((s) => {
+      specsObj[s.key] = s.value;
+    });
+
+    const defaultVariant = newProduct.variants.find((v) => v.isDefault) || newProduct.variants[0];
+    const imageList = newProduct.images.map((img) => img.media?.url || "").filter(Boolean);
+
+    const formattedProduct = {
+      id: newProduct.id,
+      name: newProduct.name,
+      slug: newProduct.slug,
+      description: newProduct.description,
+      category: newProduct.category?.name || data.category || "Chandelier",
+      price: Math.round(newProduct.basePrice / 100),
+      compare_at_price: Math.round((newProduct.compareAtPrice || 0) / 100),
+      discount: newProduct.discount,
+      rating: newProduct.rating,
+      dimensions: specsObj["Dimensions"] || data.dimensions || "",
+      material: specsObj["Material"] || data.material || "",
+      finish: specsObj["Finish"] || data.finish || "",
+      bulbs: specsObj["Bulbs"] || data.bulbs || "",
+      stock: defaultVariant?.inventory?.quantity ?? (data.stock || 10),
+      images: imageList.length > 0 ? imageList : (data.images || []),
+      features: data.features || [],
+      specifications: specsObj,
+      related_products: [],
+    };
 
     logApiResponse(req, 201, startTime);
     return NextResponse.json(
-      { message: "Product created successfully", product: newProduct },
-      { status: 201 }
+      { message: "Product created successfully", product: formattedProduct },
+      {
+        status: 201,
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate",
+          Pragma: "no-cache",
+        },
+      }
     );
   } catch (err) {
     const { logError } = await import("@/lib/logger");

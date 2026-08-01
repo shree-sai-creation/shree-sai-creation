@@ -35,7 +35,7 @@ export default function TermsPage() {
               02. Shipping & Crate Deliveries
             </h3>
             <p>
-              Deliveries are handled by white-glove logistics agents. Crated boxes must be inspected upon delivery. Any damage incurred during transit must be reported with photographic documentation to concierge@shreesaicreation.com within 48 hours of arrival for claims processing.
+              Deliveries are handled by white-glove logistics agents. Crated boxes must be inspected upon delivery. Any damage incurred during transit must be reported with photographic documentation to support@shreesaicreation.com.au within 48 hours of arrival for claims processing.
             </p>
           </section>
 

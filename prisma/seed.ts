@@ -138,6 +138,38 @@ async function main() {
         create: { productId: product.id, key: "Bulbs", value: p.bulbs },
       });
     }
+
+    // Seed Media and Product Images
+    if (p.images && p.images.length > 0) {
+      // Clear existing images to allow clean re-seed
+      await prisma.productImage.deleteMany({ where: { productId: product.id } });
+
+      for (let idx = 0; idx < p.images.length; idx++) {
+        const imgUrl = p.images[idx];
+        let media = await prisma.media.findFirst({ where: { url: imgUrl } });
+
+        if (!media) {
+          media = await prisma.media.create({
+            data: {
+              url: imgUrl,
+              storageKey: `prod-${p.id}-${idx}`,
+              fileName: `product-${p.id}-${idx}.jpg`,
+              mimeType: "image/jpeg",
+              fileSize: 102400,
+            },
+          });
+        }
+
+        await prisma.productImage.create({
+          data: {
+            productId: product.id,
+            mediaId: media.id,
+            sortOrder: idx,
+            isPrimary: idx === 0,
+          },
+        });
+      }
+    }
   }
 
   // 4. Seed Default Settings
@@ -148,8 +180,8 @@ async function main() {
   });
   await prisma.setting.upsert({
     where: { key: "currency" },
-    update: { value: "INR" },
-    create: { key: "currency", value: "INR" },
+    update: { value: "AUD" },
+    create: { key: "currency", value: "AUD" },
   });
 
   console.log("🎉 Database seeding completed successfully!");

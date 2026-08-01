@@ -5,7 +5,6 @@ import { logApiResponse } from "@/lib/middleware";
 const DEFAULT_FOOTER = {
   copyright: "© 2026 Shree Sai Creation. All rights reserved.",
   footerLinks: [
-    { title: "Collections", url: "/collections" },
     { title: "Shop All", url: "/shop" },
     { title: "About Us", url: "/about" },
     { title: "Contact", url: "/contact" },

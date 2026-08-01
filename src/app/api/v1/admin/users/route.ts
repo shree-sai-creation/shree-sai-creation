@@ -3,6 +3,8 @@ import prisma from "@/lib/db";
 import { requireAdmin, logApiResponse } from "@/lib/middleware";
 import { Role } from "@prisma/client";
 
+export const dynamic = "force-dynamic";
+
 // GET /api/v1/admin/users — list all registered users
 export async function GET(req: NextRequest) {
   const startTime = Date.now();
@@ -102,10 +104,62 @@ export async function PATCH(req: NextRequest) {
     });
 
     logApiResponse(req, 200, startTime);
-    return NextResponse.json({ message: "User role updated" });
+    return NextResponse.json({ message: "User role updated successfully" });
   } catch (err) {
     const { logError } = await import("@/lib/logger");
     logError("admin/users PATCH", err);
+    logApiResponse(req, 500, startTime);
+    return NextResponse.json({ message: "Internal server error" }, { status: 500 });
+  }
+}
+
+// POST /api/v1/admin/users — create a new user (customer or admin)
+export async function POST(req: NextRequest) {
+  const startTime = Date.now();
+  const authResult = requireAdmin(req);
+  if ("error" in authResult) return authResult.error;
+
+  try {
+    const body = await req.json();
+    const { name, email, password, role } = body;
+
+    if (!name || !email || !password) {
+      return NextResponse.json({ message: "Name, email, and password are required" }, { status: 400 });
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+    const existing = await prisma.user.findUnique({ where: { email: cleanEmail } });
+    if (existing) {
+      return NextResponse.json({ message: "User with this email already exists" }, { status: 409 });
+    }
+
+    const bcrypt = await import("bcryptjs");
+    const passwordHash = bcrypt.default.hashSync(password, 12);
+    const targetRole = role === "admin" ? Role.ADMIN : Role.CUSTOMER;
+
+    const newUser = await prisma.user.create({
+      data: {
+        name: name.trim(),
+        email: cleanEmail,
+        passwordHash: passwordHash,
+        role: targetRole,
+        isEmailVerified: true,
+      },
+    });
+
+    const formatted = {
+      id: newUser.id,
+      name: newUser.name,
+      email: newUser.email,
+      role: newUser.role.toLowerCase(),
+      created_at: newUser.createdAt.toISOString(),
+    };
+
+    logApiResponse(req, 201, startTime);
+    return NextResponse.json({ message: "User created successfully", user: formatted }, { status: 201 });
+  } catch (err) {
+    const { logError } = await import("@/lib/logger");
+    logError("admin/users POST", err);
     logApiResponse(req, 500, startTime);
     return NextResponse.json({ message: "Internal server error" }, { status: 500 });
   }

@@ -55,3 +55,31 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ message: "Internal server error" }, { status: 500 });
   }
 }
+
+// DELETE /api/v1/admin/orders — Clear all orders for fresh start
+export async function DELETE(req: NextRequest) {
+  const startTime = Date.now();
+  const authResult = requireAdmin(req);
+  if ("error" in authResult) return authResult.error;
+
+  try {
+    const { searchParams } = new URL(req.url);
+    const orderId = searchParams.get("id");
+
+    if (orderId) {
+      await prisma.order.delete({ where: { id: orderId } });
+      logApiResponse(req, 200, startTime);
+      return NextResponse.json({ message: "Order deleted successfully" });
+    }
+
+    // Clear all orders atomically
+    await prisma.order.deleteMany({});
+    logApiResponse(req, 200, startTime);
+    return NextResponse.json({ message: "All orders cleared successfully for fresh start" });
+  } catch (err) {
+    const { logError } = await import("@/lib/logger");
+    logError("admin/orders/DELETE", err);
+    logApiResponse(req, 500, startTime);
+    return NextResponse.json({ message: "Internal server error" }, { status: 500 });
+  }
+}

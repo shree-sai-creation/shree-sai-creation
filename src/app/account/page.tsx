@@ -191,23 +191,11 @@ function AccountContent() {
           label: "Order Placed", 
           date: dateStr, 
           done: true, 
-          current: status === "pending"
-        },
-        { 
-          label: "In Production", 
-          date: "Crating & Handcrafting", 
-          done: ["crating", "shipped", "delivered"].includes(status), 
-          current: status === "crating"
-        },
-        { 
-          label: "Shipped", 
-          date: "Carrier Air-Freight", 
-          done: ["shipped", "delivered"].includes(status), 
-          current: status === "shipped"
+          current: status !== "delivered"
         },
         { 
           label: "Delivered", 
-          date: status === "delivered" ? "Completed" : "Est. 6-8 weeks", 
+          date: status === "delivered" ? "Delivered" : "Est. 7 Days for Delivery", 
           done: status === "delivered", 
           current: status === "delivered"
         }

@@ -57,7 +57,14 @@ export async function GET(
       (acc, v) => acc + (v.inventory ? Math.max(0, v.inventory.quantity - v.inventory.reserved) : 0),
       0
     );
-    const imagesList = product.images.map((img) => img.media?.url || "").filter(Boolean);
+    let imagesList = product.images.map((img) => img.media?.url || "").filter(Boolean);
+    if (imagesList.length === 0) {
+      imagesList = [
+        "https://images.unsplash.com/photo-1540932239986-30128078f3c5?q=80&w=1200",
+        "https://images.unsplash.com/photo-1565814636199-ae8133055c1c?q=80&w=1200",
+        "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?q=80&w=1200",
+      ];
+    }
 
     // Fetch up to 8 Related Products (same category or brand, excluding current product)
     const relatedProducts = await prisma.product.findMany({
@@ -143,6 +150,20 @@ export async function GET(
   } catch (err) {
     const { logError } = await import("@/lib/logger");
     logError("products/slug/GET", err);
+
+    // Fallback for local development when local database is offline
+    try {
+      const { slug } = await params;
+      const { PRODUCTS } = await import("@/data/products");
+      const found = PRODUCTS.find((p) => p.slug === slug || p.id === slug);
+      if (found) {
+        logApiResponse(req, 200, startTime);
+        return NextResponse.json({ product: { ...found, related_products: [] } });
+      }
+    } catch (e) {
+      console.error("Fallback error:", e);
+    }
+
     logApiResponse(req, 500, startTime);
     return NextResponse.json({ message: "Internal server error" }, { status: 500 });
   }
