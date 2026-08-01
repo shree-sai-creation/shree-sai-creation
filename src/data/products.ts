@@ -45,8 +45,8 @@ export const PRODUCTS: Product[] = [
     bulbs: "18 x E12 Candelabra LED",
     stock: 5,
     images: [
-      "/uploads/prod_1784731820538_1--1-.png",
-      "/uploads/prod_1784732379383_1--1-.png"
+      "/products/royal-crystal-chandelier.webp",
+      "/products/cascade-chandelier.webp"
     ],
     features: ["Precision cut K9 crystal prisms", "Solid brass gold-plated frame", "Dimmable warm glow"],
     specifications: { "Weight": "45 lbs" },
@@ -68,7 +68,7 @@ export const PRODUCTS: Product[] = [
     bulbs: "12 x E12 Base LED",
     stock: 8,
     images: [
-      "/uploads/prod_1784731913968_1--2-.png"
+      "/products/aurora-gold-chandelier.png"
     ],
     features: ["Brushed gold finish", "Symmetric post layout", "Easy canopy assembly"],
     specifications: { "Weight": "30 lbs" },
@@ -90,7 +90,7 @@ export const PRODUCTS: Product[] = [
     bulbs: "Integrated LED (45W, Dimmable)",
     stock: 4,
     images: [
-      "/uploads/prod_1784731999642_1--3-.png"
+      "/products/modern-ring-chandelier.png"
     ],
     features: ["Integrated dimmable LEDs", "Fluted crystal halo panels", "Adjustable aircraft-grade steel cables"],
     specifications: { "Weight": "18 lbs" },
@@ -112,7 +112,7 @@ export const PRODUCTS: Product[] = [
     bulbs: "10 x E12 Base LED",
     stock: 3,
     images: [
-      "/uploads/prod_1784732088402_1--4-.png"
+      "/products/luxury-oval-chandelier.png"
     ],
     features: ["Elongated oval design for dining tables", "Prismatic optic glass elements", "Sturdy mounting track"],
     specifications: { "Weight": "35 lbs" },
@@ -134,7 +134,7 @@ export const PRODUCTS: Product[] = [
     bulbs: "24 x E12 Candelabra LED",
     stock: 2,
     images: [
-      "/uploads/prod_1784732120614_1--5-.png"
+      "/products/empire-crystal-chandelier.webp"
     ],
     features: ["Grand scale empire drop shape", "Premium K9 brilliant crystals", "Heavy-duty ceiling mount support required"],
     specifications: { "Weight": "85 lbs" },
@@ -171,8 +171,8 @@ export const PRODUCTS: Product[] = [
     bulbs: "18 x G9 LED Bulbs (3000K, Warm White, Dimmable included)",
     stock: 7,
     images: [
-      "/uploads/prod_1784731820538_1--1-.png",
-      "/uploads/prod_1784732379383_1--1-.png"
+      "/products/cascade-chandelier.webp",
+      "/products/royal-crystal-chandelier.webp"
     ],
     features: [
       "Each glass drop is unique and individually mouth-blown by artisans",
@@ -214,7 +214,7 @@ export const PRODUCTS: Product[] = [
     bulbs: "Integrated LED (12W, 2700K, 850 Lumens, CRI 95)",
     stock: 12,
     images: [
-      "/uploads/prod_1784731913968_1--2-.png"
+      "/products/alabaster-sconce.png"
     ],
     features: [
       "Carved from selected Spanish alabaster blocks with distinct veining",
@@ -255,7 +255,7 @@ export const PRODUCTS: Product[] = [
     bulbs: "Integrated LED strip (45W, 3000K, 3200 Lumens, Dimmable)",
     stock: 5,
     images: [
-      "/uploads/prod_1784731999642_1--3-.png"
+      "/products/linear-pendant.webp"
     ],
     features: [
       "Satin-brushed gold finish over high-grade aerospace aluminum",
@@ -296,7 +296,7 @@ export const PRODUCTS: Product[] = [
     bulbs: "10 x custom integrated LED pins (3W each, 2700K, included)",
     stock: 4,
     images: [
-      "/uploads/prod_1784732088402_1--4-.png"
+      "/products/luxury-oval-chandelier.png"
     ],
     features: [
       "Perfect linear design for placement above dining tables or kitchen islands",
@@ -329,7 +329,7 @@ export const PRODUCTS: Product[] = [
     bulbs: "3 x E26 Base (Max 60W, warm LED Edison bulbs recommended)",
     stock: 9,
     images: [
-      "/uploads/prod_1784732120614_1--5-.png"
+      "/products/modern-ring-chandelier.png"
     ],
     features: [
       "Two-tier dome structure creates premium indirect bouncing ambient light",
@@ -370,7 +370,7 @@ export const PRODUCTS: Product[] = [
     bulbs: "24 x E12 Candelabra base LED (4W, 2700K, Dimmable included)",
     stock: 2,
     images: [
-      "/uploads/prod_1784731820538_1--1-.png"
+      "/products/empire-crystal-chandelier.webp"
     ],
     features: [
       "Over 400 pieces of hand-cut K9 optical grade crystal blocks",
@@ -411,7 +411,7 @@ export const PRODUCTS: Product[] = [
     bulbs: "1 x E12 LED Bulb (6W, 2700K, Warm Glow, Included)",
     stock: 15,
     images: [
-      "/uploads/prod_1784731913968_1--2-.png"
+      "/products/linear-pendant.webp"
     ],
     features: [
       "Solid carved Spanish alabaster sphere with custom polishing",
@@ -444,7 +444,7 @@ export const PRODUCTS: Product[] = [
     bulbs: "2 x T10 tubular LED (4W, E26 base, 2700K, included)",
     stock: 14,
     images: [
-      "/uploads/prod_1784732088402_1--4-.png"
+      "/products/outdoor-sconce.png"
     ],
     features: [
       "Heavy gauge metal backing with hand-applied antique oil bronze finish",
@@ -485,7 +485,7 @@ export const PRODUCTS: Product[] = [
     bulbs: "7 x G4 LED bipin bulbs (2W, 3000K, dimmable, included)",
     stock: 3,
     images: [
-      "/uploads/prod_1784731999642_1--3-.png"
+      "/products/cascade-chandelier.webp"
     ],
     features: [
       "Horizontal branch style canopy designed for dining or kitchen tables",
