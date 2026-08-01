@@ -50,3 +50,6 @@ next-env.d.ts
 
 # Production env (has secrets, do not commit)
 .env.production
+
+# Uploaded media on VPS (do not overwrite on git pull)
+/public/uploads/
