@@ -51,7 +51,7 @@ function ShopContent() {
   const [layoutMode, setLayoutMode] = useState<"grid" | "list">("grid");
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 12;
+  const ITEMS_PER_PAGE = 24;
 
   // Synchronize URL parameters if they change
   useEffect(() => {

@@ -32,12 +32,15 @@ export const getStoredProducts = (): Product[] => {
   const stored = localStorage.getItem("shree_sai_db_products");
   if (stored) {
     try {
-      return JSON.parse(stored);
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed) && parsed.length >= PRODUCTS.length) {
+        return parsed;
+      }
     } catch (e) {
       console.error("Failed to parse stored products", e);
     }
   }
-  // Initialize on first call if not present
+  // Initialize or update localStorage on call if not present or outdated
   if (typeof window !== "undefined") {
     localStorage.setItem("shree_sai_db_products", JSON.stringify(PRODUCTS));
   }
