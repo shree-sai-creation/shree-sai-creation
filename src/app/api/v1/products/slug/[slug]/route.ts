@@ -60,9 +60,9 @@ export async function GET(
     let imagesList = product.images.map((img) => img.media?.url || "").filter(Boolean);
     if (imagesList.length === 0) {
       imagesList = [
-        "https://images.unsplash.com/photo-1540932239986-30128078f3c5?q=80&w=1200",
-        "https://images.unsplash.com/photo-1565814636199-ae8133055c1c?q=80&w=1200",
-        "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?q=80&w=1200",
+        "/uploads/prod_1784731820538_1--1-.png",
+        "/uploads/prod_1784731913968_1--2-.png",
+        "/uploads/prod_1784731999642_1--3-.png",
       ];
     }
 
