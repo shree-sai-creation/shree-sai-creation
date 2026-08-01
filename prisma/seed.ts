@@ -1,6 +1,8 @@
 import { PrismaClient, Role } from "@prisma/client";
 import bcrypt from "bcryptjs";
-const { PRODUCTS } = require("../src/data/products.ts");
+import { createRequire } from "module";
+const customRequire = createRequire(import.meta.url);
+const { PRODUCTS } = customRequire("../src/data/products");
 
 const prisma = new PrismaClient();
 
