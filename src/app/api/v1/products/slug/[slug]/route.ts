@@ -60,9 +60,9 @@ export async function GET(
     let imagesList = product.images.map((img) => img.media?.url || "").filter(Boolean);
     if (imagesList.length === 0) {
       imagesList = [
-        "/Categories/Chandiler.PNG",
-        "/Categories/Indoor wall lamp.PNG",
-        "/Categories/ceiling-lights.PNG",
+        "/uploads/prod_1784731820538_1--1-.png",
+        "/uploads/prod_1784731913968_1--2-.png",
+        "/uploads/prod_1784731999642_1--3-.png",
       ];
     }
 
