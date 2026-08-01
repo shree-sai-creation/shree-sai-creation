@@ -86,30 +86,34 @@ async function main() {
     });
 
     // Seed default variant
-    const variantSku = `SKU-${p.id.padStart(4, "0")}`;
-    const variant = await prisma.productVariant.upsert({
-      where: { sku: variantSku },
-      update: {
-        price: Math.round((p.price || 0) * 100),
-      },
-      create: {
-        productId: product.id,
-        sku: variantSku,
-        price: Math.round((p.price || 0) * 100),
-        isDefault: true,
-      },
+    const variantSku = `SKU-${product.id.slice(0, 8)}-DEFAULT`;
+    let variant = await prisma.productVariant.findFirst({
+      where: { productId: product.id },
     });
 
+    if (!variant) {
+      variant = await prisma.productVariant.create({
+        data: {
+          productId: product.id,
+          sku: variantSku,
+          price: Math.round((p.price || 0) * 100),
+          isDefault: true,
+        },
+      }).catch(() => null as any);
+    }
+
     // Seed inventory
-    await prisma.inventory.upsert({
-      where: { variantId: variant.id },
-      update: { quantity: p.stock || 10 },
-      create: {
-        variantId: variant.id,
-        quantity: p.stock || 10,
-        reserved: 0,
-      },
-    });
+    if (variant) {
+      await prisma.inventory.upsert({
+        where: { variantId: variant.id },
+        update: { quantity: p.stock || 10 },
+        create: {
+          variantId: variant.id,
+          quantity: p.stock || 10,
+          reserved: 0,
+        },
+      }).catch(() => {});
+    }
 
     // Seed Specifications
     if (p.dimensions) {
