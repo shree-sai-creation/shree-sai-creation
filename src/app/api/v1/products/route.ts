@@ -174,8 +174,8 @@ export async function GET(req: NextRequest) {
 
       if (imagesList.length === 0) {
         imagesList = [
-          "/uploads/prod_1784731820538_1--1-.png",
-          "/uploads/prod_1784731913968_1--2-.png",
+          "/Categories/Chandiler.PNG",
+          "/Categories/Indoor wall lamp.PNG",
         ];
       }
 

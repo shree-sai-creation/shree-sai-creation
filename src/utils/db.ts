@@ -134,9 +134,9 @@ export const mapBackendProductToFrontend = (p: any): Product => {
   const fallbackImages = matchingStatic?.images?.length
     ? matchingStatic.images
     : [
-        "/uploads/prod_1784731820538_1--1-.png",
-        "/uploads/prod_1784731913968_1--2-.png",
-        "/uploads/prod_1784731999642_1--3-.png",
+        "/Categories/Chandiler.PNG",
+        "/Categories/Indoor wall lamp.PNG",
+        "/Categories/ceiling-lights.PNG",
       ];
 
   let rawImages: string[] = [];
