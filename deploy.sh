@@ -24,10 +24,11 @@ git reset --hard origin/main
 echo "      ✓ Code updated to: $(git log --oneline -1)"
 echo ""
 
-# Step 2: Install dependencies
-echo "[2/4] Installing dependencies..."
-npm install --silent
-echo "      ✓ Dependencies installed"
+# Step 2: Install dependencies & Prisma generate
+echo "[2/4] Installing dependencies & generating Prisma client..."
+npm install
+npx prisma generate
+echo "      ✓ Dependencies & Prisma client updated"
 echo ""
 
 # Step 3: Build
@@ -38,7 +39,7 @@ echo ""
 
 # Step 4: Restart PM2
 echo "[4/4] Restarting app..."
-pm2 restart "$PM2_NAME"
+pm2 restart "$PM2_NAME" --update-env
 pm2 save
 echo "      ✓ App restarted"
 echo ""
