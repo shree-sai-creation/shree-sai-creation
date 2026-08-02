@@ -90,6 +90,17 @@ export async function uploadFileToStorage({
     const filePath = path.join(uploadDir, storagePath);
     fs.writeFileSync(filePath, fileBuffer);
 
+    // Also sync to Nginx static directory if it exists on VPS
+    const wwwUploadDir = "/var/www/shree-sai-creation/public/uploads";
+    try {
+      if (!fs.existsSync(wwwUploadDir)) {
+        fs.mkdirSync(wwwUploadDir, { recursive: true });
+      }
+      fs.writeFileSync(path.join(wwwUploadDir, storagePath), fileBuffer);
+    } catch (wwwErr) {
+      // Non-fatal if folder doesn't exist
+    }
+
     return {
       storageKey: `uploads/${storagePath}`,
       publicUrl: `/uploads/${storagePath}`,
