@@ -112,6 +112,23 @@ const nextConfig: NextConfig = {
 
   // Power header hata do (security through obscurity)
   poweredByHeader: false,
+
+  // Rewrites: Proxy local requests directly to live VPS server if USE_LIVE_VPS=true
+  async rewrites() {
+    if (process.env.USE_LIVE_VPS === "true") {
+      return [
+        {
+          source: "/api/:path*",
+          destination: "https://shreesaicreation.com.au/api/:path*",
+        },
+        {
+          source: "/uploads/:path*",
+          destination: "https://shreesaicreation.com.au/uploads/:path*",
+        },
+      ];
+    }
+    return [];
+  },
 };
 
 export default nextConfig;
