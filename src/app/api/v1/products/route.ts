@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
 
     // 1. Pagination parameters
     const page = Math.max(parseInt(searchParams.get("page") || "1"), 1);
-    const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "20"), 1), 100);
+    const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "20"), 1), 10000);
     const skip = (page - 1) * limit;
 
     // 2. Query & Search parameters
