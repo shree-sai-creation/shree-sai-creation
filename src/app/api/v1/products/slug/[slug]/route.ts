@@ -15,7 +15,8 @@ export async function GET(
   try {
     const { slug } = await params;
 
-    if (!/^[a-z0-9-]{1,200}$/.test(slug)) {
+    // Allow all reasonable slug characters including em-dash (–), ampersand (&), comma, parentheses, spaces
+    if (!slug || slug.length > 300 || /[<>"'`\\\/]/.test(slug)) {
       logApiResponse(req, 400, startTime);
       return NextResponse.json({ message: "Invalid product slug" }, { status: 400 });
     }
