@@ -30,7 +30,7 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
         if (res.ok && data.product) {
           const mapped = mapBackendProductToFrontend(data.product);
           
-          const allRes = await fetch("/api/v1/products?limit=100");
+          const allRes = await fetch("/api/v1/products?limit=1000");
           const allData = await allRes.json();
           if (allRes.ok && allData.products) {
             const allMapped = allData.products.map(mapBackendProductToFrontend);

@@ -48,7 +48,7 @@ export const Header: React.FC = () => {
   useEffect(() => {
     const fetchSearchProducts = async () => {
       try {
-        const res = await fetch("/api/v1/products?limit=100");
+        const res = await fetch("/api/v1/products?limit=1000");
         const data = await res.json();
         if (res.ok && data.products) {
           setProducts(data.products.map(mapBackendProductToFrontend));

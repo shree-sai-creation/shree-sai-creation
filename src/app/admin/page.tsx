@@ -245,7 +245,7 @@ export default function AdminPage() {
       setBulkParsedProducts([]);
       
       // Reload products list from DB
-      const pRes = await fetch("/api/v1/products");
+      const pRes = await fetch("/api/v1/products?limit=1000", { cache: "no-store" });
       const pData = await pRes.json();
       if (pRes.ok && pData.products) {
         const mapped = pData.products.map((p: Record<string, unknown>) => ({
@@ -403,8 +403,8 @@ export default function AdminPage() {
       setAdminUser(parsed);
       setIsAuth(true);
       
-      // Load all products from API (limit=100)
-      fetch("/api/v1/products?limit=100", { cache: "no-store" })
+      // Load all products from API (limit=1000)
+      fetch("/api/v1/products?limit=1000", { cache: "no-store" })
         .then((res) => res.json())
         .then((data) => {
           if (data.products && Array.isArray(data.products)) {
