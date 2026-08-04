@@ -263,15 +263,13 @@ export const Header: React.FC = () => {
                             </span>
                           </div>
                           <div className="flex flex-wrap gap-2">
-                            {[
+                             {[
                               "Chandelier",
                               "Indoor wall lamps",
                               "Linear lights",
                               "Ceiling lights",
                               "Internal pendant lights",
-                              "Outdoor wall lamps",
-                              "Crystal",
-                              "Brass"
+                              "Outdoor wall lamps"
                             ].map((tag) => (
                               <button
                                 key={tag}
