@@ -39,6 +39,11 @@ export async function GET(
             },
           },
         },
+        reviews: {
+          where: { isAllowed: true },
+          include: { user: { select: { name: true } } },
+          orderBy: { createdAt: "desc" },
+        },
       },
     });
 
@@ -118,6 +123,18 @@ export async function GET(
       openGraphImage: imagesList[0] || "",
     };
 
+    const formattedReviews = (product.reviews || []).map((r) => ({
+      id: r.id,
+      author: r.user?.name || "Verified Owner",
+      rating: r.rating,
+      text: r.comment || "",
+      date: r.createdAt.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      }),
+    }));
+
     const formattedProduct = {
       id: product.id,
       name: product.name,
@@ -143,6 +160,7 @@ export async function GET(
       specifications: specsObj,
       variants: formattedVariants,
       related_products: formattedRelated,
+      reviews: formattedReviews,
       seo,
     };
 

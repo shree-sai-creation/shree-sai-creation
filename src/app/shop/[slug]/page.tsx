@@ -5,7 +5,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PRODUCTS, Product } from "@/data/products";
 import { useCart } from "@/context/CartContext";
-import { Heart, Share2, Star, ArrowLeft, Plus, Minus, Info } from "lucide-react";
+import { Heart, Share2, Star, ArrowLeft, Plus, Minus, Info, PenSquare, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollReveal } from "@/components/animation/ScrollReveal";
 import { ProductCard } from "@/components/shop/ProductCard";
@@ -59,7 +59,53 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
     return products.find((p) => p.slug === slug);
   }, [products, slug]);
 
-  const { addToCart, toggleWishlist, isInWishlist, formatPrice } = useCart();
+  const { addToCart, toggleWishlist, isInWishlist, formatPrice, addToast } = useCart();
+
+  // Review Submission Modal State
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [newRating, setNewRating] = useState(5);
+  const [newComment, setNewComment] = useState("");
+  const [authorName, setAuthorName] = useState("");
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+
+  const handleReviewSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!product || !newComment.trim()) return;
+
+    try {
+      setIsSubmittingReview(true);
+      const res = await fetch(`/api/v1/products/${product.id}/reviews`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rating: newRating,
+          comment: newComment,
+          authorName: authorName.trim() || "Verified Buyer",
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to submit review");
+      }
+
+      // Append new review locally
+      if (data.review) {
+        product.reviews = [data.review, ...(product.reviews || [])];
+      }
+
+      addToast("Thank you! Your endorsement has been published.", "success");
+      setIsReviewModalOpen(false);
+      setNewComment("");
+      setNewRating(5);
+    } catch (err) {
+      console.error("Review submit error:", err);
+      const msg = err instanceof Error ? err.message : "Error submitting review";
+      addToast(msg, "error");
+    } finally {
+      setIsSubmittingReview(false);
+    }
+  };
 
   // Recently Viewed State
   const [recentlyViewed, setRecentlyViewed] = useState<Product[]>([]);
@@ -406,13 +452,22 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
 
         {/* Reviews Section */}
         <section className="mt-24 border-t border-white/5 pt-16">
-          <div className="mb-12">
-            <h2 className="font-serif text-2xl uppercase tracking-widest text-white mb-2">
-              Customer Endorsements
-            </h2>
-            <p className="text-[10px] tracking-[0.2em] uppercase text-white/40">
-              Verified owners detailing their architectural setups
-            </p>
+          <div className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div>
+              <h2 className="font-serif text-2xl uppercase tracking-widest text-white mb-2">
+                Customer Endorsements
+              </h2>
+              <p className="text-[10px] tracking-[0.2em] uppercase text-white/40">
+                Verified owners detailing their architectural setups
+              </p>
+            </div>
+            <button
+              onClick={() => setIsReviewModalOpen(true)}
+              className="inline-flex items-center gap-2 px-5 py-3 bg-[#C5A880] text-black text-[10px] tracking-[0.2em] uppercase font-bold hover:bg-[#d6b78d] transition-colors cursor-pointer w-fit"
+            >
+              <PenSquare size={13} />
+              Write a Review
+            </button>
           </div>
 
           {product.reviews.length > 0 ? (
@@ -446,6 +501,101 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
             </div>
           )}
         </section>
+
+        {/* Write a Review Modal */}
+        {isReviewModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+            <div className="relative max-w-lg w-full bg-[#0d0d0d] border border-white/10 p-8 shadow-2xl space-y-6">
+              <button
+                onClick={() => setIsReviewModalOpen(false)}
+                className="absolute top-6 right-6 text-white/40 hover:text-white transition-colors cursor-pointer"
+                aria-label="Close review modal"
+              >
+                <X size={18} />
+              </button>
+
+              <div>
+                <span className="text-[9px] tracking-[0.3em] uppercase text-[#C5A880] font-medium block mb-1">
+                  Share Your Experience
+                </span>
+                <h3 className="font-serif text-xl uppercase tracking-widest text-white">
+                  Write an Endorsement
+                </h3>
+              </div>
+
+              <form onSubmit={handleReviewSubmit} className="space-y-5">
+                {/* Rating Picker */}
+                <div>
+                  <label className="block text-[9px] uppercase tracking-widest text-white/60 mb-2">
+                    Overall Rating
+                  </label>
+                  <div className="flex gap-2 text-[#C5A880]">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => setNewRating(star)}
+                        className="cursor-pointer focus:outline-none p-1 hover:scale-110 transition-transform"
+                      >
+                        <Star
+                          size={20}
+                          className={star <= newRating ? "fill-[#C5A880] stroke-[#C5A880]" : "stroke-white/20"}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Author Name */}
+                <div>
+                  <label className="block text-[9px] uppercase tracking-widest text-white/60 mb-2">
+                    Your Name / Title
+                  </label>
+                  <input
+                    type="text"
+                    value={authorName}
+                    onChange={(e) => setAuthorName(e.target.value)}
+                    placeholder="e.g. Architect / Homeowner"
+                    className="w-full bg-white/5 border border-white/10 px-4 py-3 text-xs text-white placeholder-white/20 focus:outline-none focus:border-[#C5A880] transition-colors"
+                  />
+                </div>
+
+                {/* Comment Textarea */}
+                <div>
+                  <label className="block text-[9px] uppercase tracking-widest text-white/60 mb-2">
+                    Your Review *
+                  </label>
+                  <textarea
+                    required
+                    rows={4}
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    placeholder="Describe the build quality, lighting ambiance, and installation setup..."
+                    className="w-full bg-white/5 border border-white/10 p-4 text-xs text-white placeholder-white/20 focus:outline-none focus:border-[#C5A880] transition-colors resize-none"
+                  />
+                </div>
+
+                {/* Submit Action */}
+                <div className="flex justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsReviewModalOpen(false)}
+                    className="px-5 py-3 border border-white/10 text-white/60 text-[10px] uppercase tracking-widest hover:text-white hover:border-white/30 transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingReview}
+                    className="px-6 py-3 bg-[#C5A880] text-black text-[10px] uppercase tracking-widest font-bold hover:bg-[#d6b78d] transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    {isSubmittingReview ? "Publishing..." : "Post Review"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
 
         {/* Related Products Section */}
         {relatedList.length > 0 && (
