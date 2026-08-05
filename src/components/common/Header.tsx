@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { ShoppingCart, Heart, Search, Menu, X, Trash2, Plus, Minus, ArrowRight, ArrowLeft, User, ChevronDown, LogOut, Package, Settings, CreditCard, Compass, Sun, Moon, LayoutDashboard } from "lucide-react";
+import { ShoppingCart, Heart, Search, Menu, X, Trash2, Plus, Minus, ArrowRight, ArrowLeft, User, ChevronDown, LogOut, Package, Settings, CreditCard, Compass, Sun, Moon, LayoutDashboard, Instagram, Facebook, Mail, MessageCircle } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { PRODUCTS, Product } from "@/data/products";
 import { Logo } from "@/components/common/Logo";
@@ -1162,6 +1162,60 @@ export const Header: React.FC = () => {
               <div className={`px-6 py-5 border-t space-y-4 ${
                 theme === "dark" ? "border-white/5" : "border-black/5"
               }`}>
+                {/* Social Media Icons */}
+                <div className="flex items-center justify-center gap-4 pb-3 border-b border-white/5">
+                  <a
+                    href="https://www.instagram.com/shreesai__creations?utm_source=qr&igsh=czdmeTA4cHF4eWZr"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`w-9 h-9 rounded-full border flex items-center justify-center transition-all ${
+                      theme === "dark" 
+                        ? "border-white/10 text-white/70 hover:text-[#C9A96E] hover:border-[#C9A96E] bg-white/5" 
+                        : "border-black/10 text-black/70 hover:text-[#C9A96E] hover:border-[#C9A96E] bg-black/5"
+                    }`}
+                    aria-label="Instagram"
+                  >
+                    <Instagram size={14} />
+                  </a>
+                  <a
+                    href="https://wa.me/61432784241"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`w-9 h-9 rounded-full border flex items-center justify-center transition-all ${
+                      theme === "dark" 
+                        ? "border-white/10 text-white/70 hover:text-[#C9A96E] hover:border-[#C9A96E] bg-white/5" 
+                        : "border-black/10 text-black/70 hover:text-[#C9A96E] hover:border-[#C9A96E] bg-black/5"
+                    }`}
+                    aria-label="WhatsApp"
+                  >
+                    <MessageCircle size={14} />
+                  </a>
+                  <a
+                    href="mailto:support@shreesaicreation.com.au"
+                    className={`w-9 h-9 rounded-full border flex items-center justify-center transition-all ${
+                      theme === "dark" 
+                        ? "border-white/10 text-white/70 hover:text-[#C9A96E] hover:border-[#C9A96E] bg-white/5" 
+                        : "border-black/10 text-black/70 hover:text-[#C9A96E] hover:border-[#C9A96E] bg-black/5"
+                    }`}
+                    aria-label="Email"
+                  >
+                    <Mail size={14} />
+                  </a>
+                  <a
+                    href="https://facebook.com/shreesaicreation"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`w-9 h-9 rounded-full border flex items-center justify-center transition-all ${
+                      theme === "dark" 
+                        ? "border-white/10 text-white/70 hover:text-[#C9A96E] hover:border-[#C9A96E] bg-white/5" 
+                        : "border-black/10 text-black/70 hover:text-[#C9A96E] hover:border-[#C9A96E] bg-black/5"
+                    }`}
+                    aria-label="Facebook"
+                  >
+                    <Facebook size={14} />
+                  </a>
+                </div>
+
                 {user ? (
                   <button
                     onClick={() => { handleLogout(); setIsMobileMenuOpen(false); }}
