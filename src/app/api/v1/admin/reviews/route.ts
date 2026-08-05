@@ -8,8 +8,11 @@ export async function GET(req: NextRequest) {
   const securityError = withSecurity(req, GENERAL_RATE_LIMIT);
   if (securityError) return securityError;
 
-  const authError = requireAdmin(req);
-  if (authError) return authError;
+  const authResult = requireAdmin(req);
+  if ("error" in authResult) {
+    logApiResponse(req, 403, startTime);
+    return authResult.error;
+  }
 
   try {
     const reviews = await prisma.review.findMany({

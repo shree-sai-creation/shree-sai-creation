@@ -16,8 +16,11 @@ export async function PATCH(
   const securityError = withSecurity(req, GENERAL_RATE_LIMIT);
   if (securityError) return securityError;
 
-  const authError = requireAdmin(req);
-  if (authError) return authError;
+  const authResult = requireAdmin(req);
+  if ("error" in authResult) {
+    logApiResponse(req, 403, startTime);
+    return authResult.error;
+  }
 
   try {
     const { id } = await params;
@@ -86,8 +89,11 @@ export async function DELETE(
   const securityError = withSecurity(req, GENERAL_RATE_LIMIT);
   if (securityError) return securityError;
 
-  const authError = requireAdmin(req);
-  if (authError) return authError;
+  const authResult = requireAdmin(req);
+  if ("error" in authResult) {
+    logApiResponse(req, 403, startTime);
+    return authResult.error;
+  }
 
   try {
     const { id } = await params;
