@@ -68,6 +68,7 @@ export async function POST(req: NextRequest) {
     }
 
     const data = parsed.data;
+    const authUser = getAuthUser(req);
     let userId: string | null = authUser?.id ? String(authUser.id) : null;
     const customerEmail = data.email || shippingAddress.email;
     if (!userId && customerEmail) {
