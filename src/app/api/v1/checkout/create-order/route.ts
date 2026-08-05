@@ -68,7 +68,16 @@ export async function POST(req: NextRequest) {
     }
 
     const data = parsed.data;
-    const authUser = getAuthUser(req);
+    let userId: string | null = authUser?.id ? String(authUser.id) : null;
+    const customerEmail = data.email || shippingAddress.email;
+    if (!userId && customerEmail) {
+      const existingUser = await prisma.user.findFirst({
+        where: { email: { equals: customerEmail, mode: "insensitive" } },
+      });
+      if (existingUser) {
+        userId = String(existingUser.id);
+      }
+    }
 
     const orderNumber = generateOrderNumber();
     const { shippingAddress } = data;
@@ -113,8 +122,8 @@ export async function POST(req: NextRequest) {
       const order = await tx.order.create({
         data: {
           orderNumber,
-          userId: authUser?.id ? String(authUser.id) : null,
-          guestEmail: authUser ? null : (data.email || shippingAddress.email),
+          userId: userId,
+          guestEmail: userId ? null : customerEmail,
           status: "PENDING",
           fullName: shippingAddress.fullName,
           email: shippingAddress.email,
@@ -141,7 +150,7 @@ export async function POST(req: NextRequest) {
         }
 
         if (targetProduct) {
-          // Resolve variant and check stock
+          // Resolve variant and update stock
           let variant = await tx.productVariant.findFirst({
             where: { productId: targetProduct.id },
             include: { inventory: true },
@@ -149,13 +158,7 @@ export async function POST(req: NextRequest) {
 
           if (variant && variant.inventory) {
             const inv = variant.inventory;
-            const available = Math.max(0, inv.quantity - inv.reserved);
-
-            if (available < item.quantity) {
-              throw new Error(`INSUFFICIENT_STOCK:${variant.id}:${available}:${item.quantity}`);
-            }
-
-            const newQty = inv.quantity - item.quantity;
+            const newQty = Math.max(0, inv.quantity - item.quantity);
 
             // Atomic Stock Deduction
             await tx.inventory.update({
@@ -174,7 +177,7 @@ export async function POST(req: NextRequest) {
                 type: "SALE",
                 reason: `Order #${orderNumber} placement`,
                 orderId: order.id,
-                userId: authUser?.id ? String(authUser.id) : null,
+                userId: userId,
               },
             });
           }

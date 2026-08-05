@@ -18,7 +18,13 @@ export async function GET(req: NextRequest) {
     const { user } = authResult;
 
     const orders = await prisma.order.findMany({
-      where: { userId: String(user.id) },
+      where: {
+        OR: [
+          { userId: String(user.id) },
+          { email: { equals: user.email, mode: "insensitive" } },
+          { guestEmail: { equals: user.email, mode: "insensitive" } },
+        ],
+      },
       include: { items: true },
       orderBy: { createdAt: "desc" },
       take: 50,
