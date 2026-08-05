@@ -204,7 +204,7 @@ export const mapBackendProductToFrontend = (p: any): Product => {
     price: currentPrice,
     discount: discount,
     rating: p.averageRating || p.rating || 5.0,
-    reviews: [],
+    reviews: p.reviews || [],
     dimensions: dimensions,
     material: Array.isArray(p.materials) ? p.materials.join(", ") : (p.material || ""),
     finish: Array.isArray(p.finish) ? p.finish.join(", ") : (p.finish || ""),

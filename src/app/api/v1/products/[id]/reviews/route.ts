@@ -45,15 +45,23 @@ export async function POST(
 
     const { rating, comment } = parsed.data;
 
-    // 2. Verify product exists
-    const product = await prisma.product.findUnique({
+    // 2. Verify product exists (by ID or Slug)
+    let product = await prisma.product.findUnique({
       where: { id: productId },
     });
+
+    if (!product) {
+      product = await prisma.product.findFirst({
+        where: { slug: productId },
+      });
+    }
 
     if (!product) {
       logApiResponse(req, 404, startTime);
       return NextResponse.json({ message: "Product not found" }, { status: 404 });
     }
+
+    const targetProductId = product.id;
 
     // 3. Fetch user profile from DB to get verified name
     const user = await prisma.user.findUnique({
@@ -72,7 +80,7 @@ export async function POST(
     // Create Review in DB
     const review = await prisma.review.create({
       data: {
-        productId,
+        productId: targetProductId,
         userId,
         rating,
         comment,
@@ -85,7 +93,7 @@ export async function POST(
 
     // Recalculate average product rating
     const allReviews = await prisma.review.findMany({
-      where: { productId, isAllowed: true },
+      where: { productId: targetProductId, isAllowed: true },
       select: { rating: true },
     });
 
@@ -95,7 +103,7 @@ export async function POST(
           (allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length) * 10
         ) / 10;
       await prisma.product.update({
-        where: { id: productId },
+        where: { id: targetProductId },
         data: { rating: avgRating },
       });
     }

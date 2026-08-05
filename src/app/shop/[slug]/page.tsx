@@ -33,9 +33,10 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
           const allData = await allRes.json();
           if (allRes.ok && allData.products) {
             const allMapped = allData.products.map(mapBackendProductToFrontend);
-            const list = allMapped.some((p: Product) => p.slug === slug) 
-              ? allMapped 
-              : [mapped, ...allMapped];
+            const list = allMapped.map((p: Product) => (p.slug === slug ? mapped : p));
+            if (!list.some((p: Product) => p.slug === slug)) {
+              list.unshift(mapped);
+            }
             setProducts(list);
           } else {
             setProducts([mapped]);
