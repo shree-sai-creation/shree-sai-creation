@@ -66,8 +66,15 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
 
   useEffect(() => {
     if (product) {
-      const stored = localStorage.getItem("shree_sai_recently_viewed");
-      let list: string[] = stored ? JSON.parse(stored) : [];
+      const stored = typeof window !== "undefined" ? localStorage.getItem("shree_sai_recently_viewed") : null;
+      let list: string[] = [];
+      if (stored) {
+        try {
+          list = JSON.parse(stored);
+        } catch {
+          list = [];
+        }
+      }
       
       // Filter out the current product and limit
       list = list.filter((id) => id !== product.id);

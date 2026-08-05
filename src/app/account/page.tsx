@@ -135,11 +135,17 @@ function AccountContent() {
     if (!stored) {
       router.push("/signin");
     } else {
-      const parsed = JSON.parse(stored);
-      setUser(parsed);
-      setFullName(parsed.name || "");
-      setEmailAddress(parsed.email || "");
-      setLoading(false);
+      let parsed = null;
+      try {
+        parsed = JSON.parse(stored);
+      } catch (e) {
+        console.error("Error parsing stored user data:", e);
+      }
+      if (parsed) {
+        setUser(parsed);
+        setFullName(parsed.name || "");
+        setEmailAddress(parsed.email || "");
+        setLoading(false);
 
       const fetchUserOrders = async () => {
         try {
@@ -160,6 +166,9 @@ function AccountContent() {
         }
       };
       fetchUserOrders();
+      } else {
+        router.push("/signin");
+      }
     }
   }, [router]);
 

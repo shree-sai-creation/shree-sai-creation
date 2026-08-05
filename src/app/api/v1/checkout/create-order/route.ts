@@ -55,7 +55,13 @@ export async function POST(req: NextRequest) {
   if (securityError) return securityError;
 
   try {
-    const body = await req.json();
+    let body = {};
+    try {
+      body = await req.json();
+    } catch {
+      logApiResponse(req, 400, startTime);
+      return NextResponse.json({ message: "Invalid or empty JSON payload" }, { status: 400 });
+    }
     const sanitized = sanitizeObject(body);
     const parsed = OrderSchema.safeParse(sanitized);
 
