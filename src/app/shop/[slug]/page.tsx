@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, use, useEffect } from "react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, useRouter } from "next/navigation";
 import { PRODUCTS, Product } from "@/data/products";
 import { useCart } from "@/context/CartContext";
 import { Heart, Share2, Star, ArrowLeft, Plus, Minus, Info, PenSquare, X } from "lucide-react";
@@ -29,7 +29,6 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
         const data = await res.json();
         if (res.ok && data.product) {
           const mapped = mapBackendProductToFrontend(data.product);
-          
           const allRes = await fetch("/api/v1/products?limit=1000");
           const allData = await allRes.json();
           if (allRes.ok && allData.products) {
@@ -54,7 +53,6 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
     fetchProductDetail();
   }, [slug]);
 
-  // Retrieve matching product
   const product = useMemo(() => {
     return products.find((p) => p.slug === slug);
   }, [products, slug]);
@@ -65,22 +63,48 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [newRating, setNewRating] = useState(5);
   const [newComment, setNewComment] = useState("");
-  const [authorName, setAuthorName] = useState("");
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+
+  const handleOpenReviewModal = () => {
+    const storedUser = localStorage.getItem("shree_sai_user");
+    if (!storedUser) {
+      addToast("Please sign in to write a review.", "info");
+      router.push(`/signin?redirect=/shop/${slug}`);
+      return;
+    }
+    setIsReviewModalOpen(true);
+  };
 
   const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!product || !newComment.trim()) return;
 
+    const storedUser = localStorage.getItem("shree_sai_user");
+    if (!storedUser) {
+      addToast("Please sign in to write a review.", "info");
+      router.push(`/signin?redirect=/shop/${slug}`);
+      return;
+    }
+
+    let token = "";
+    try {
+      const parsed = JSON.parse(storedUser);
+      token = parsed.token || "";
+    } catch {
+      // Ignore
+    }
+
     try {
       setIsSubmittingReview(true);
       const res = await fetch(`/api/v1/products/${product.id}/reviews`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({
           rating: newRating,
           comment: newComment,
-          authorName: authorName.trim() || "Verified Buyer",
         }),
       });
 
@@ -462,7 +486,7 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
               </p>
             </div>
             <button
-              onClick={() => setIsReviewModalOpen(true)}
+              onClick={handleOpenReviewModal}
               className="inline-flex items-center gap-2 px-5 py-3 bg-[#C5A880] text-black text-[10px] tracking-[0.2em] uppercase font-bold hover:bg-[#d6b78d] transition-colors cursor-pointer w-fit"
             >
               <PenSquare size={13} />
@@ -544,20 +568,6 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
                       </button>
                     ))}
                   </div>
-                </div>
-
-                {/* Author Name */}
-                <div>
-                  <label className="block text-[9px] uppercase tracking-widest text-white/60 mb-2">
-                    Your Name / Title
-                  </label>
-                  <input
-                    type="text"
-                    value={authorName}
-                    onChange={(e) => setAuthorName(e.target.value)}
-                    placeholder="e.g. Architect / Homeowner"
-                    className="w-full bg-white/5 border border-white/10 px-4 py-3 text-xs text-white placeholder-white/20 focus:outline-none focus:border-[#C5A880] transition-colors"
-                  />
                 </div>
 
                 {/* Comment Textarea */}

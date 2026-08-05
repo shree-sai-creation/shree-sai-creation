@@ -7,7 +7,6 @@ import { GENERAL_RATE_LIMIT } from "@/lib/rateLimit";
 const CreateReviewSchema = z.object({
   rating: z.number().min(1, "Rating must be at least 1").max(5, "Rating max 5"),
   comment: z.string().min(3, "Review comment must be at least 3 characters").max(2000, "Review comment too long"),
-  authorName: z.string().optional().default("Verified Buyer"),
 });
 
 export async function POST(
@@ -20,6 +19,19 @@ export async function POST(
 
   try {
     const { id: productId } = await params;
+
+    // 1. Strict Authentication Check
+    const authUser = getAuthUser(req);
+    if (!authUser || !authUser.id) {
+      logApiResponse(req, 401, startTime);
+      return NextResponse.json(
+        { message: "Please sign in to write a review." },
+        { status: 401 }
+      );
+    }
+
+    const userId = String(authUser.id);
+
     const body = await req.json();
     const parsed = CreateReviewSchema.safeParse(body);
 
@@ -31,9 +43,9 @@ export async function POST(
       );
     }
 
-    const { rating, comment, authorName } = parsed.data;
+    const { rating, comment } = parsed.data;
 
-    // Verify product exists
+    // 2. Verify product exists
     const product = await prisma.product.findUnique({
       where: { id: productId },
     });
@@ -43,23 +55,17 @@ export async function POST(
       return NextResponse.json({ message: "Product not found" }, { status: 404 });
     }
 
-    // Resolve user if token provided
-    const authUser = getAuthUser(req);
-    let userId = authUser?.id ? String(authUser.id) : null;
+    // 3. Fetch user profile from DB to get verified name
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true, email: true },
+    });
 
-    if (!userId) {
-      // Find first user in DB as fallback or guest reviewer link
-      const fallbackUser = await prisma.user.findFirst();
-      if (fallbackUser) {
-        userId = fallbackUser.id;
-      }
-    }
-
-    if (!userId) {
-      logApiResponse(req, 400, startTime);
+    if (!user) {
+      logApiResponse(req, 401, startTime);
       return NextResponse.json(
-        { message: "User account required to submit a review." },
-        { status: 400 }
+        { message: "User account not found. Please sign in again." },
+        { status: 401 }
       );
     }
 
@@ -96,7 +102,7 @@ export async function POST(
 
     const formattedReview = {
       id: review.id,
-      author: authorName || review.user?.name || "Verified Buyer",
+      author: user.name || review.user?.name || "Verified Customer",
       rating: review.rating,
       text: review.comment || "",
       date: review.createdAt.toLocaleDateString("en-US", {
