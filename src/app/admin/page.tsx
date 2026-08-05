@@ -18,7 +18,10 @@ import {
   SlidersHorizontal,
   FolderOpen,
   Upload,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Star,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { Button } from "@/components/ui/button";
@@ -120,6 +123,21 @@ interface AdminDashboardOrder {
 }
 
 
+interface DbReview {
+  id: string;
+  productId: string;
+  productName: string;
+  productSlug: string;
+  productImage: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  rating: number;
+  comment: string;
+  isAllowed: boolean;
+  createdAt: string;
+}
+
 export default function AdminPage() {
   const router = useRouter();
   const { formatPrice } = useCart();
@@ -128,8 +146,13 @@ export default function AdminPage() {
   const [isAuth, setIsAuth] = useState(false);
   const [adminUser, setAdminUser] = useState<{ email: string; name: string } | null>(null);
 
-  // Active Tab: dashboard, products, orders, users, shipping, tax
-  const [activeTab, setActiveTab] = useState<"dashboard" | "products" | "orders" | "users" | "shipping" | "tax">("dashboard");
+  // Active Tab: dashboard, products, orders, reviews, users, shipping, tax
+  const [activeTab, setActiveTab] = useState<"dashboard" | "products" | "orders" | "reviews" | "users" | "shipping" | "tax">("dashboard");
+
+  // Reviews management state
+  const [reviews, setReviews] = useState<DbReview[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewSearch, setReviewSearch] = useState("");
 
   // Shipping & Tax management states
   const [shippingZones, setShippingZones] = useState<any[]>([]);
@@ -470,6 +493,18 @@ export default function AdminPage() {
         .catch(err => console.error("Error loading users:", err))
         .finally(() => setUsersLoading(false));
 
+      // Load reviews
+      setReviewsLoading(true);
+      fetch("/api/v1/admin/reviews", {
+        headers: { "Authorization": `Bearer ${parsed.token}` }
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.reviews && Array.isArray(data.reviews)) setReviews(data.reviews);
+        })
+        .catch(err => console.error("Error loading reviews:", err))
+        .finally(() => setReviewsLoading(false));
+
       setIsOrdersLoading(true);
       fetch("/api/v1/admin/orders", {
         headers: { "Authorization": `Bearer ${parsed.token}` }
@@ -524,6 +559,52 @@ export default function AdminPage() {
       router.push("/signin");
     }
   }, [router]);
+
+  const handleToggleReviewStatus = async (reviewId: string, currentIsAllowed: boolean) => {
+    const storedUser = localStorage.getItem("shree_sai_user");
+    const parsed = storedUser ? JSON.parse(storedUser) : null;
+    const token = parsed?.token;
+
+    try {
+      const res = await fetch(`/api/v1/admin/reviews/${reviewId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ isAllowed: !currentIsAllowed }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to update review status");
+
+      setReviews((prev) =>
+        prev.map((r) => (r.id === reviewId ? { ...r, isAllowed: !currentIsAllowed } : r))
+      );
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Error updating review status");
+    }
+  };
+
+  const handleDeleteReview = async (reviewId: string) => {
+    if (!confirm("Are you sure you want to delete this review?")) return;
+
+    const storedUser = localStorage.getItem("shree_sai_user");
+    const parsed = storedUser ? JSON.parse(storedUser) : null;
+    const token = parsed?.token;
+
+    try {
+      const res = await fetch(`/api/v1/admin/reviews/${reviewId}`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to delete review");
+
+      setReviews((prev) => prev.filter((r) => r.id !== reviewId));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Error deleting review");
+    }
+  };
 
   // Derived statistics for dashboard
   const stats = useMemo(() => {
@@ -792,6 +873,7 @@ export default function AdminPage() {
               { id: "dashboard", label: "Dashboard", icon: <LayoutDashboard size={16} /> },
               { id: "products", label: "Products Catalog", icon: <Package size={16} /> },
               { id: "orders", label: "Orders Fulfilment", icon: <ShoppingBag size={16} /> },
+              { id: "reviews", label: "Customer Reviews", icon: <Star size={16} /> },
               { id: "users", label: "User Management", icon: <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
               { id: "shipping", label: "Shipping Engine", icon: <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg> },
               { id: "tax", label: "Tax Engine", icon: <SlidersHorizontal size={16} /> }
@@ -830,7 +912,7 @@ export default function AdminPage() {
         {/* Mobile quick navigation tabs */}
         <div className="flex md:hidden items-center justify-between border-b border-[rgb(var(--border))] pb-4 mb-6">
           <div className="flex gap-2 flex-wrap">
-            {["dashboard", "products", "orders", "users", "shipping", "tax"].map((tab) => (
+            {["dashboard", "products", "orders", "reviews", "users", "shipping", "tax"].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab as any)}
@@ -859,6 +941,7 @@ export default function AdminPage() {
               {activeTab === "dashboard" && "Analytics Overview"}
               {activeTab === "products" && "Product Catalog Manager"}
               {activeTab === "orders" && "Fulfillment Operations"}
+              {activeTab === "reviews" && "Customer Reviews Moderation"}
               {activeTab === "users" && "User Management"}
               {activeTab === "shipping" && "Shipping Zones & Rates"}
               {activeTab === "tax" && "Tax Regions & Rules"}
@@ -1234,6 +1317,185 @@ export default function AdminPage() {
                 </table>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* ── TAB 3.5: CUSTOMER REVIEWS MODERATION ─────────── */}
+        {activeTab === "reviews" && (
+          <div className="space-y-6 animate-fade-up">
+
+            {/* Search bar & Stats */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3 bg-[rgb(var(--surface))] border border-[rgb(var(--border))] rounded-xl px-4 py-3 max-w-md w-full">
+                <Search size={14} className="text-[rgb(var(--text-muted))] shrink-0" />
+                <input
+                  type="text"
+                  placeholder="Search by product, customer, or comment..."
+                  value={reviewSearch}
+                  onChange={(e) => setReviewSearch(e.target.value)}
+                  className="bg-transparent text-[10px] tracking-wider text-[rgb(var(--foreground))] placeholder-[rgb(var(--text-muted))] outline-none w-full normal-case"
+                />
+              </div>
+
+              <div className="flex items-center gap-6 text-[10px] tracking-widest uppercase text-[rgb(var(--text-muted))] shrink-0">
+                <span>Total: <span className="text-[rgb(var(--foreground))] font-semibold">{reviews.length}</span></span>
+                <span>Approved: <span className="text-emerald-500 font-semibold">{reviews.filter((r) => r.isAllowed).length}</span></span>
+                <span>Hidden: <span className="text-amber-500 font-semibold">{reviews.filter((r) => !r.isAllowed).length}</span></span>
+              </div>
+            </div>
+
+            {/* Reviews Table */}
+            <div className="bg-[rgb(var(--surface))] border border-[rgb(var(--border))] rounded-2xl overflow-hidden shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-[10px] tracking-widest uppercase">
+                  <thead>
+                    <tr className="border-b border-[rgb(var(--border))] bg-[rgba(var(--foreground),0.015)] text-[rgb(var(--text-muted))]">
+                      <th className="p-4 pl-6 font-semibold">Product</th>
+                      <th className="p-4 font-semibold">Customer</th>
+                      <th className="p-4 font-semibold">Rating</th>
+                      <th className="p-4 font-semibold">Review Comment</th>
+                      <th className="p-4 font-semibold">Date</th>
+                      <th className="p-4 font-semibold">Status</th>
+                      <th className="p-4 pr-6 text-right font-semibold">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[rgb(var(--border))]">
+                    {reviewsLoading ? (
+                      <tr>
+                        <td colSpan={7} className="p-12 text-center text-[10px] text-[rgb(var(--text-muted))] tracking-widest uppercase">
+                          Loading reviews...
+                        </td>
+                      </tr>
+                    ) : reviews.filter((r) =>
+                        (r.productName || "").toLowerCase().includes(reviewSearch.toLowerCase()) ||
+                        (r.userName || "").toLowerCase().includes(reviewSearch.toLowerCase()) ||
+                        (r.userEmail || "").toLowerCase().includes(reviewSearch.toLowerCase()) ||
+                        (r.comment || "").toLowerCase().includes(reviewSearch.toLowerCase())
+                      ).length ? (
+                      reviews
+                        .filter((r) =>
+                          (r.productName || "").toLowerCase().includes(reviewSearch.toLowerCase()) ||
+                          (r.userName || "").toLowerCase().includes(reviewSearch.toLowerCase()) ||
+                          (r.userEmail || "").toLowerCase().includes(reviewSearch.toLowerCase()) ||
+                          (r.comment || "").toLowerCase().includes(reviewSearch.toLowerCase())
+                        )
+                        .map((rev) => (
+                          <tr key={rev.id} className="hover:bg-[rgba(var(--foreground),0.005)] transition-colors">
+                            {/* Product */}
+                            <td className="p-4 pl-6">
+                              <div className="flex items-center gap-3">
+                                {rev.productImage ? (
+                                  <img
+                                    src={rev.productImage}
+                                    alt={rev.productName}
+                                    className="w-10 h-10 object-cover rounded-lg border border-[rgb(var(--border))]"
+                                  />
+                                ) : (
+                                  <div className="w-10 h-10 rounded-lg bg-[rgb(var(--border))]/20 flex items-center justify-center text-[rgb(var(--gold))] font-bold text-xs">
+                                    ★
+                                  </div>
+                                )}
+                                <div>
+                                  <Link
+                                    href={`/shop/${rev.productSlug}`}
+                                    target="_blank"
+                                    className="font-semibold text-[rgb(var(--foreground))] text-[11px] normal-case font-serif hover:text-[rgb(var(--gold))] transition-colors block max-w-[180px] truncate"
+                                  >
+                                    {rev.productName}
+                                  </Link>
+                                  <span className="text-[8px] text-[rgb(var(--text-muted))] tracking-widest">
+                                    ID #{rev.productId.slice(0, 8)}
+                                  </span>
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Customer */}
+                            <td className="p-4 space-y-0.5">
+                              <p className="font-semibold text-[rgb(var(--foreground))] normal-case text-[11px]">{rev.userName}</p>
+                              <p className="text-[9px] lowercase tracking-normal text-[rgb(var(--text-muted))]">{rev.userEmail}</p>
+                            </td>
+
+                            {/* Rating */}
+                            <td className="p-4">
+                              <div className="flex text-[#C5A880] gap-0.5">
+                                {[...Array(5)].map((_, i) => (
+                                  <Star
+                                    key={i}
+                                    size={11}
+                                    className={i < rev.rating ? "fill-[#C5A880] stroke-[#C5A880]" : "stroke-white/20"}
+                                  />
+                                ))}
+                              </div>
+                            </td>
+
+                            {/* Comment */}
+                            <td className="p-4 max-w-xs">
+                              <p className="text-[10px] normal-case text-[rgb(var(--text-secondary))] leading-relaxed line-clamp-2">
+                                &quot;{rev.comment}&quot;
+                              </p>
+                            </td>
+
+                            {/* Date */}
+                            <td className="p-4 text-[9px] text-[rgb(var(--text-muted))]">
+                              {new Date(rev.createdAt).toLocaleDateString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              })}
+                            </td>
+
+                            {/* Status */}
+                            <td className="p-4">
+                              {rev.isAllowed ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[8px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                  ● Approved
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[8px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                  ● Hidden
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Actions */}
+                            <td className="p-4 pr-6 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  onClick={() => handleToggleReviewStatus(rev.id, rev.isAllowed)}
+                                  className={`p-2 rounded-lg border transition-all cursor-pointer ${
+                                    rev.isAllowed
+                                      ? "border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
+                                      : "border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+                                  }`}
+                                  title={rev.isAllowed ? "Hide Review" : "Approve Review"}
+                                >
+                                  {rev.isAllowed ? <EyeOff size={13} /> : <Eye size={13} />}
+                                </button>
+
+                                <button
+                                  onClick={() => handleDeleteReview(rev.id)}
+                                  className="p-2 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-all cursor-pointer"
+                                  title="Delete Review"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                    ) : (
+                      <tr>
+                        <td colSpan={7} className="p-12 text-center text-[10px] text-[rgb(var(--text-muted))] tracking-widest uppercase">
+                          No reviews found matching search query.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
           </div>
         )}
 
