@@ -276,8 +276,16 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (Array.isArray(parsed) && parsed.length > 0) {
             setCart(parsed);
           }
+      // Load local wishlist storage
+      const savedWishlist = localStorage.getItem("shree_sai_wishlist");
+      if (savedWishlist) {
+        try {
+          const parsed = JSON.parse(savedWishlist);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setWishlist(parsed);
+          }
         } catch (e) {
-          console.error("Error loading local cart:", e);
+          console.error("Error loading local wishlist:", e);
         }
       }
 
@@ -305,6 +313,12 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem("shree_sai_creation_language", language);
     }
   }, [language, mounted]);
+
+  useEffect(() => {
+    if (mounted) {
+      localStorage.setItem("shree_sai_wishlist", JSON.stringify(wishlist));
+    }
+  }, [wishlist, mounted]);
 
   // Toast functions
   const addToast = (message: string, type: "success" | "info" | "error" = "success") => {
@@ -458,38 +472,28 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const toggleWishlist = async (product: Product) => {
-    const storedUser = localStorage.getItem("shree_sai_user");
-    if (!storedUser) {
-      setWishlist((prev) => {
-        const exists = prev.some((item) => item.id === product.id);
-        if (exists) {
-          addToast(`${product.name} removed from saved coordinates.`, "info");
-          return prev.filter((item) => item.id !== product.id);
-        }
-        addToast(`${product.name} saved to coordinates.`, "success");
-        return [...prev, product];
-      });
-      return;
-    }
-    
-    const exists = wishlist.some((item) => item.id === product.id);
-    try {
-      const headers = getHeaders();
-      const method = exists ? "DELETE" : "POST";
-      const url = `/api/v1/wishlist/${product.id}`;
-      const res = await fetch(url, { method, headers });
-      const data = await res.json();
-      if (res.ok && data.products) {
-        setWishlist(data.products.map(mapBackendProductToFrontend));
-        addToast(
-          exists 
-            ? `${product.name} removed from saved coordinates.` 
-            : `${product.name} saved to coordinates.`, 
-          exists ? "info" : "success"
-        );
+    let isRemoving = false;
+    setWishlist((prev) => {
+      const exists = prev.some((item) => item.id === product.id);
+      isRemoving = exists;
+      if (exists) {
+        addToast(`${product.name} removed from wishlist.`, "info");
+        return prev.filter((item) => item.id !== product.id);
       }
-    } catch (err) {
-      console.error("Error toggling wishlist:", err);
+      addToast(`${product.name} saved to wishlist.`, "success");
+      return [...prev, product];
+    });
+
+    const storedUser = localStorage.getItem("shree_sai_user");
+    if (storedUser) {
+      try {
+        const headers = getHeaders();
+        const method = isRemoving ? "DELETE" : "POST";
+        const url = `/api/v1/wishlist/${product.id}`;
+        await fetch(url, { method, headers });
+      } catch {
+        // Ignore API sync errors to preserve local user experience
+      }
     }
   };
 
