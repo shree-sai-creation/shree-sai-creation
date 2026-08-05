@@ -33,7 +33,7 @@ echo ""
 
 # Step 3: Build
 echo "[3/4] Building Next.js app..."
-rm -rf .next
+rm -rf .next node_modules/.cache
 npm run build
 echo "      ✓ Build successful"
 echo ""
