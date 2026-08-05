@@ -777,7 +777,6 @@ export const Header: React.FC = () => {
                           />
                         </div>
                         <p className="text-[10px] tracking-[0.2em] uppercase text-white group-hover:text-[#C9A96E] transition-colors">{cat.name}</p>
-                        <p className="text-[9px] text-white/30 mt-0.5">{cat.count} Products</p>
                       </Link>
                     ))}
                   </div>

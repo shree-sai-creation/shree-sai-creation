@@ -334,11 +334,6 @@ export default function HomePage() {
                     {cat.name}
                   </h3>
                   <div className="w-8 h-[1px] bg-[#C9A96E] my-3 transform origin-left transition-transform duration-500 group-hover:scale-x-150" />
-                  <p className={`text-[10px] tracking-[0.2em] uppercase ${
-                    theme === "dark" ? "text-white/50" : "text-black/50"
-                  }`}>
-                    {cat.count} Products
-                  </p>
                 </div>
                 
                 <div className="mt-4 flex items-center justify-between">
