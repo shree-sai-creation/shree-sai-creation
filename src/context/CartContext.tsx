@@ -276,6 +276,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (Array.isArray(parsed) && parsed.length > 0) {
             setCart(parsed);
           }
+        } catch (e) {
+          console.error("Error loading local cart:", e);
+        }
+      }
+
       // Load local wishlist storage
       const savedWishlist = localStorage.getItem("shree_sai_wishlist");
       if (savedWishlist) {
